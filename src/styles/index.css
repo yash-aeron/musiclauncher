@@ -1,0 +1,241 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+
+  /* --- Apple Music design tokens --- */
+  /* Accent = Apple Music red. The single most identifying trait of the app. */
+  --accent: #fa2d48;
+  --accent-strong: #ff375f;
+  --accent-ink: #ffffff; /* white text/icons sit on the red */
+
+  --surface: 20 20 22; /* rgb triplet for translucent chrome base */
+
+  /* Apple radii are subtle: album art ~6px, controls ~6-8px, pills = full. */
+  --r-art: 6px;
+  --r-control: 8px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  background: #05060a;
+  color: #f5f6fa;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 3px;
+}
+
+@layer components {
+  /* True "Liquid Glass" material: a real refractive lens warp of the backdrop
+     (SVG displacement in GlassFilters.tsx) + specular edge-lighting for a thick
+     bevelled edge. Light blur so the lensing stays visible. Falls back to plain
+     blur / solid fill where url() backdrop filters aren't supported (below). */
+  .glass {
+    position: relative;
+    isolation: isolate;
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04) 42%, rgba(255, 255, 255, 0.02)),
+      rgba(255, 255, 255, 0.04);
+    -webkit-backdrop-filter: blur(8px) saturate(185%);
+    backdrop-filter: blur(8px) saturate(185%) url(#lg);
+    box-shadow:
+      inset 0 1px 0.5px rgba(255, 255, 255, 0.6),
+      inset 0 0 0 0.5px rgba(255, 255, 255, 0.16),
+      inset 0 -8px 18px -12px rgba(255, 255, 255, 0.28),
+      0 16px 44px -16px rgba(0, 0, 0, 0.6);
+  }
+
+  .glass-strong {
+    position: relative;
+    isolation: isolate;
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03) 45%),
+      rgba(var(--surface), 0.5);
+    -webkit-backdrop-filter: blur(16px) saturate(185%);
+    backdrop-filter: blur(16px) saturate(185%) url(#lg);
+    box-shadow:
+      inset 0 1px 0.5px rgba(255, 255, 255, 0.5),
+      inset 0 0 0 0.5px rgba(255, 255, 255, 0.14),
+      0 20px 60px -20px rgba(0, 0, 0, 0.75);
+  }
+
+  /* Soft interactive rows */
+  .row-hover {
+    @apply transition-colors duration-200;
+  }
+  .row-hover:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  /* Solid red accent button (used sparingly). */
+  .btn-accent {
+    background: var(--accent);
+    color: var(--accent-ink);
+    transition:
+      transform 0.12s cubic-bezier(0.16, 1, 0.3, 1),
+      background 0.12s ease;
+  }
+  .btn-accent:hover {
+    background: var(--accent-strong);
+  }
+  .btn-accent:active {
+    transform: scale(0.97);
+  }
+
+  /* Apple's grey translucent Play / Shuffle pills on album pages — red icon,
+     frosted grey fill, NOT a big solid button. */
+  .pill-control {
+    position: relative;
+    isolation: isolate;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05)),
+      rgba(255, 255, 255, 0.06);
+    -webkit-backdrop-filter: blur(6px) saturate(180%);
+    backdrop-filter: blur(6px) saturate(180%) url(#lg);
+    color: var(--accent-strong);
+    border-radius: 12px;
+    font-weight: 600;
+    box-shadow:
+      inset 0 1px 0.5px rgba(255, 255, 255, 0.6),
+      inset 0 0 0 0.5px rgba(255, 255, 255, 0.16),
+      0 8px 22px -12px rgba(0, 0, 0, 0.5);
+    transition:
+      background 0.12s ease,
+      transform 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .pill-control:hover {
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.08)),
+      rgba(255, 255, 255, 0.1);
+  }
+  .pill-control:active {
+    transform: scale(0.98);
+  }
+
+  /* Frosted chrome for the toolbar + sidebar — softer lens than the pucks. */
+  .chrome {
+    position: relative;
+    isolation: isolate;
+    background: linear-gradient(180deg, rgba(42, 42, 46, 0.6), rgba(24, 24, 27, 0.66));
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%) url(#lg-soft);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  /* Slow specular sweep — makes a glass puck feel "alive". Reduced-motion safe
+     (killed by the global reduce block). Host element needs overflow-hidden. */
+  .glass-sheen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+    background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.22) 50%, transparent 65%);
+    transform: translateX(-160%);
+    animation: lg-sheen 9s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes lg-sheen {
+    0%, 100% { transform: translateX(-160%); }
+    55% { transform: translateX(160%); }
+  }
+}
+
+/* Fallback: no url() backdrop support (Firefox / Safari) — the displacement is
+   simply dropped; the plain blur + specular already look like frosted glass. If
+   backdrop-filter is unsupported entirely, fill solid so text stays legible. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass,
+  .glass-strong,
+  .pill-control,
+  .chrome {
+    background: rgb(34 34 38);
+  }
+}
+
+/* a11y: glass depends on transparency — provide a solid fallback so text stays
+   legible for users who reduce transparency (taste-skill 2.B / 5). */
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-strong,
+  .pill-control,
+  .chrome {
+    background: rgb(28 28 30);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .glass-sheen::after {
+    display: none;
+  }
+}
+
+/* a11y: collapse all motion/animation for reduced-motion users (mandatory
+   above MOTION_INTENSITY 3). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Android WebView can exhaust its tile budget on full-screen blur/refraction. */
+.android .ambient-glow {
+  display: none;
+}
+.android .glass,
+.android .glass-strong,
+.android .pill-control,
+.android .chrome {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.android .glass-sheen::after {
+  display: none;
+}
+
+/* Thin custom scrollbars */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+  background-clip: content-box;
+}

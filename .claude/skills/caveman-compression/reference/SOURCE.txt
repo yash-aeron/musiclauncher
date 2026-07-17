@@ -1,0 +1,3 @@
+Caveman Compression (MIT)
+Source: https://github.com/wilpel/caveman-compression
+Vendored: SPEC.md and prompt templates for offline skill use.
