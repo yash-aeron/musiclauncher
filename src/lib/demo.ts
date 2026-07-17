@@ -89,6 +89,10 @@ function renderArt(spec: Spec): string {
 
 let loaded: Track[] | null = null;
 
+/**
+ * Generate and persist demo tracks. Returns the same array on repeated calls
+ * so `addToLibrary` won't create in-memory duplicates (#6).
+ */
 export async function loadDemoTracks(): Promise<Track[]> {
   if (loaded) return loaded;
   loaded = await Promise.all(

@@ -10,7 +10,8 @@ export function albumKey(t: Track): string {
  * resolves to the same key.
  */
 export function trackKey(t: Track): string {
-  return `${t.title}::${t.artist}::${t.album}`.toLowerCase();
+  // Use \0 (null byte) as separator — can't appear in user-entered metadata (#21).
+  return `${t.title}\0${t.artist}\0${t.album}`.toLowerCase();
 }
 
 /** Group a flat track list into albums, tracks ordered by track number. */

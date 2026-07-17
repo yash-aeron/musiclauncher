@@ -1,3 +1,5 @@
+-- Migration: 20260711_music_sync (Initial Schema)
+-- Description: Creates the play_events and tracks tables for tracking listens across devices.
 create table if not exists public.tracks (
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
   id text not null,

@@ -66,30 +66,44 @@ export async function hydrateProgress(
 ) {
   if (!supabase || !(await userId())) return () => {};
   const client = supabase;
+  // Debounce rapid Realtime notifications so concurrent loads can't race (#3).
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let inflight = false;
   const load = async () => {
-    const [{ data: events, error: eventError }, { data: playlists, error: playlistError }] =
-      await Promise.all([
-        client
-          .from("play_events")
-          .select("id, trackId, title, artist, album, at, secondsPlayed")
-          .order("at", { ascending: false }),
-        client
-          .from("playlists")
-          .select("id, name, createdAt, updatedAt, trackKeys")
-          .order("createdAt", { ascending: false }),
-      ]);
-    if (eventError) throw eventError;
-    if (playlistError) throw playlistError;
-    onEvents((events ?? []) as PlayEvent[]);
-    onPlaylists?.((playlists ?? []) as Playlist[]);
+    if (inflight) return;
+    inflight = true;
+    try {
+      const [{ data: events, error: eventError }, { data: playlists, error: playlistError }] =
+        await Promise.all([
+          client
+            .from("play_events")
+            .select("id, trackId, title, artist, album, at, secondsPlayed")
+            .order("at", { ascending: false }),
+          client
+            .from("playlists")
+            .select("id, name, createdAt, updatedAt, trackKeys")
+            .order("createdAt", { ascending: false }),
+        ]);
+      if (eventError) throw eventError;
+      if (playlistError) throw playlistError;
+      onEvents((events ?? []) as PlayEvent[]);
+      onPlaylists?.((playlists ?? []) as Playlist[]);
+    } finally {
+      inflight = false;
+    }
+  };
+  const debouncedLoad = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => void load(), 300);
   };
   await load();
   const channel = client
     .channel("progress-sync")
-    .on("postgres_changes", { event: "*", schema: "public", table: "play_events" }, () => void load())
-    .on("postgres_changes", { event: "*", schema: "public", table: "playlists" }, () => void load())
+    .on("postgres_changes", { event: "*", schema: "public", table: "play_events" }, debouncedLoad)
+    .on("postgres_changes", { event: "*", schema: "public", table: "playlists" }, debouncedLoad)
     .subscribe();
   return () => {
+    if (timer) clearTimeout(timer);
     void client.removeChannel(channel);
   };
 }

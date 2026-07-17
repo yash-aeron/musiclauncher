@@ -1,10 +1,11 @@
 import { getPlatform } from "../platform";
+import { ObjectUrlCache } from "../platform/constants";
 import type { Track } from "../types";
 
 // ALAC can't be decoded by <audio>. Decode to PCM in JS (pure-JS port of
 // Apple's reference decoder) and wrap in a float WAV blob — bit-exact, so
-// playback stays lossless. Decoded URLs are cached per track for the session.
-const cache = new Map<string, string>();
+// playback stays lossless. LRU-cached per track to cap memory (#1).
+const cache = new ObjectUrlCache(15);
 
 export async function alacToWavUrl(track: Track): Promise<string> {
   const hit = cache.get(track.id);

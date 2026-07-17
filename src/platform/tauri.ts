@@ -7,9 +7,8 @@ import { saveBlob, getBlob } from "../lib/db";
 import { trackFromBytes, bytesToDataUrl } from "../lib/metadata";
 import type { Track, TrackSource } from "../types";
 import type { PlatformAdapter, ProgressFn } from "./types";
+import { AUDIO_EXT, AUDIO_EXTENSIONS, ObjectUrlCache } from "./constants";
 
-const AUDIO_EXT = /\.(flac|wav|wave|aiff?|alac|m4a|mp3|aac|ogg|opus|wv|ape)$/i;
-const AUDIO_EXTENSIONS = ["flac", "wav", "wave", "aif", "aiff", "alac", "m4a", "mp3", "aac", "ogg", "opus", "wv", "ape"];
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "gif", "bmp"];
 
 const isAndroid = () => platform() === "android";
@@ -84,12 +83,12 @@ async function trackFromContentUri(uri: string, name: string, i: number): Promis
   return trackFromBytes(bytes, name, { kind: "blob", blobId });
 }
 
-// Object URLs minted from stored blobs, cached per blobId.
-const blobUrlCache = new Map<string, string>();
+// LRU cache — oldest entries are revoked to prevent unbounded memory growth (#1).
+const blobUrlCache = new ObjectUrlCache(30);
 
 async function blobUrl(blobId: string): Promise<string> {
-  const cached = blobUrlCache.get(blobId);
-  if (cached) return cached;
+  const hit = blobUrlCache.get(blobId);
+  if (hit) return hit;
   const blob = await getBlob(blobId);
   if (!blob) throw new Error("Song data missing from storage. Re-import it.");
   const url = URL.createObjectURL(blob);

@@ -4,7 +4,6 @@ import { getAllTracks, getAllPlayEvents, addPlayEvent, getAllPlaylists, savePlay
 import { hydrateProgress, pushPlayEvents, pushPlaylists } from "./lib/cloud";
 import { supabase } from "./lib/supabase";
 import { AmbientBackground } from "./components/AmbientBackground";
-import { GlassFilters } from "./components/GlassFilters";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { NowPlayingScreen } from "./components/NowPlayingScreen";
@@ -42,11 +41,14 @@ export default function App() {
     // Progress-only sync: merge cloud play events + playlists into the local
     // store and push up anything the cloud missed. Songs stay on-device.
     let stop = () => {};
+    let aborted = false; // guard against in-flight start after cleanup (#4)
     const start = async () => {
       try {
         const [localEvents, localPlaylists] = await Promise.all([getAllPlayEvents(), getAllPlaylists()]);
+        if (aborted) return;
         await pushPlayEvents(localEvents);
         await pushPlaylists(localPlaylists);
+        if (aborted) return;
         stop = await hydrateProgress(
           (events) => {
             events.forEach((event) => void addPlayEvent(event));
@@ -70,13 +72,12 @@ export default function App() {
       }
     };
     void start();
-    const { data } = supabase?.auth.onAuthStateChange(() => { stop(); void start(); }) ?? { data: { subscription: { unsubscribe() {} } } };
-    return () => { stop(); data.subscription.unsubscribe(); };
+    const { data } = supabase?.auth.onAuthStateChange(() => { stop(); aborted = true; aborted = false; void start(); }) ?? { data: { subscription: { unsubscribe() {} } } };
+    return () => { aborted = true; stop(); data.subscription.unsubscribe(); };
   }, []);
 
   return (
     <div className="relative flex h-[100dvh] flex-col overflow-hidden">
-      {!isAndroid && <GlassFilters />}
       <AmbientBackground />
 
       <TopBar />

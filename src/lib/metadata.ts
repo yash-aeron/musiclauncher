@@ -20,14 +20,14 @@ function makeId(name: string): string {
   return `${Date.now().toString(36)}-${idCounter}-${name.replace(/\W+/g, "").slice(0, 8)}`;
 }
 
-/** Encode raw bytes as a data URL (chunked so String.fromCharCode doesn't overflow). */
-export function bytesToDataUrl(bytes: Uint8Array, mime: string): string {
-  let binary = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return `data:${mime};base64,${btoa(binary)}`;
+/** Convert bytes to a data URL asynchronously without large string allocations (#15). */
+export function bytesToDataUrl(bytes: Uint8Array, mime: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(new Blob([bytes as any], { type: mime }));
+  });
 }
 
 /**
@@ -65,7 +65,7 @@ function extractLyrics(meta: IAudioMetadata | null): LyricLine[] | undefined {
   return undefined;
 }
 
-function buildTrack(meta: IAudioMetadata | null, fileName: string, source: TrackSource): Track {
+async function buildTrack(meta: IAudioMetadata | null, fileName: string, source: TrackSource): Promise<Track> {
   const codec = (meta?.format.codec || fileName.split(".").pop() || "").toLowerCase();
   const common = meta?.common;
   const nameNoExt = fileName.replace(/\.[^.]+$/, "");
@@ -75,7 +75,7 @@ function buildTrack(meta: IAudioMetadata | null, fileName: string, source: Track
   if (pic) {
     // Data URL (not an object URL) so the art survives page reloads once the
     // track is persisted to IndexedDB.
-    artUrl = bytesToDataUrl(new Uint8Array(pic.data), pic.format);
+    artUrl = await bytesToDataUrl(new Uint8Array(pic.data), pic.format);
   }
 
   const lyrics = extractLyrics(meta);
@@ -108,7 +108,7 @@ export async function trackFromFile(file: File, source: TrackSource): Promise<Tr
   } catch {
     // Unparseable tags — still make a usable track from the filename.
   }
-  return buildTrack(meta, file.name, source);
+  return await buildTrack(meta, file.name, source);
 }
 
 /** Parse raw bytes read natively (Tauri build, no File/Blob available). */
@@ -123,5 +123,5 @@ export async function trackFromBytes(
   } catch {
     // Unparseable tags — still make a usable track from the filename.
   }
-  return buildTrack(meta, fileName, source);
+  return await buildTrack(meta, fileName, source);
 }

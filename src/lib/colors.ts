@@ -1,4 +1,4 @@
-import Vibrant from "node-vibrant";
+
 
 export interface Palette {
   primary: string;
@@ -21,25 +21,43 @@ export async function paletteFromArt(artUrl?: string): Promise<Palette> {
   const cached = cache.get(artUrl);
   if (cached) return cached;
 
-  try {
-    const swatches = await Vibrant.from(artUrl).getPalette();
-    const pick = (...keys: (keyof typeof swatches)[]) => {
-      for (const k of keys) {
-        const hex = swatches[k]?.hex;
-        if (hex) return hex;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      try {
+        const c = document.createElement("canvas");
+        c.width = 64;
+        c.height = 64;
+        const ctx = c.getContext("2d");
+        if (!ctx) return resolve(FALLBACK);
+        ctx.drawImage(img, 0, 0, 64, 64);
+        
+        const getAvg = (sx: number, sy: number, sw: number, sh: number) => {
+          const d = ctx.getImageData(sx, sy, sw, sh).data;
+          let r = 0, g = 0, b = 0;
+          const count = d.length / 4;
+          for (let i = 0; i < d.length; i += 4) {
+            r += d[i]; g += d[i + 1]; b += d[i + 2];
+          }
+          const hex = (x: number) => Math.round(x / count).toString(16).padStart(2, '0');
+          return `#${hex(r)}${hex(g)}${hex(b)}`;
+        };
+
+        const palette: Palette = {
+          primary: getAvg(16, 16, 32, 32),
+          secondary: getAvg(0, 0, 32, 64),
+          accent: getAvg(32, 0, 32, 64),
+        };
+        cache.set(artUrl, palette);
+        resolve(palette);
+      } catch {
+        resolve(FALLBACK);
       }
-      return undefined;
     };
-    const palette: Palette = {
-      primary: pick("DarkVibrant", "Vibrant", "Muted") || FALLBACK.primary,
-      secondary: pick("DarkMuted", "Muted", "DarkVibrant") || FALLBACK.secondary,
-      accent: pick("Vibrant", "LightVibrant", "LightMuted") || FALLBACK.accent,
-    };
-    cache.set(artUrl, palette);
-    return palette;
-  } catch {
-    return FALLBACK;
-  }
+    img.onerror = () => resolve(FALLBACK);
+    img.src = artUrl;
+  });
 }
 
 export { FALLBACK as fallbackPalette };

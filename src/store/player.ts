@@ -86,6 +86,14 @@ let loggedForIndex = -1;
 let loggedEventId: string | null = null; // the play event to finalize on flush
 let crossfadeTriggeredFor = -1; // queue index whose early crossfade-advance already fired
 
+export function resetAccounting() {
+  listenedSec = 0;
+  lastTickTime = 0;
+  loggedForIndex = -1;
+  loggedEventId = null;
+  crossfadeTriggeredFor = -1;
+}
+
 function shuffled<T>(arr: T[]): T[] {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -97,11 +105,13 @@ function shuffled<T>(arr: T[]): T[] {
 }
 
 const CROSSFADE_KEY = "ml-crossfade-sec";
+const CROSSFADE_STEPS = [0, 3, 6, 12];
 
 function savedCrossfade(): number {
   try {
     const v = Number(localStorage.getItem(CROSSFADE_KEY));
-    return isFinite(v) && v > 0 ? v : 0;
+    // Only accept values that match the allowed steps (#26).
+    return isFinite(v) && CROSSFADE_STEPS.includes(v) ? v : 0;
   } catch {
     return 0;
   }
@@ -329,7 +339,8 @@ export const usePlayer = create<PlayerState>((set, get) => {
 
     // --- Queue ---
     playQueue: (tracks, startIndex) => {
-      const queue = get().shuffle ? shuffled(tracks) : tracks;
+      // Always copy so we never mutate the caller's array (#2).
+      const queue = get().shuffle ? shuffled(tracks) : tracks.slice();
       // If shuffled, keep the chosen track first.
       let idx = startIndex;
       if (get().shuffle) {

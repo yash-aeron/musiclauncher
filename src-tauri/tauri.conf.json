@@ -22,10 +22,10 @@
       }
     ],
     "security": {
-      "csp": null,
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: https:; media-src 'self' blob: asset: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; font-src 'self' data:",
       "assetProtocol": {
         "enable": true,
-        "scope": ["**"]
+        "scope": ["$HOME/Music/**", "$HOME/Downloads/**", "$DOCUMENT/**", "$AUDIO/**"]
       }
     }
   },

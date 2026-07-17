@@ -2,14 +2,14 @@ import { saveBlob, getBlob, getHandle } from "../lib/db";
 import { trackFromFile } from "../lib/metadata";
 import type { Track } from "../types";
 import type { PlatformAdapter, ProgressFn } from "./types";
+import { AUDIO_EXT, ObjectUrlCache } from "./constants";
 
-const AUDIO_EXT = /\.(flac|wav|wave|aiff?|alac|m4a|mp3|aac|ogg|opus|wv|ape)$/i;
 const IMAGE_ACCEPT = "image/*";
 
 const supportsFsAccess = typeof (window as any).showDirectoryPicker === "function";
 
-// Cache object URLs created from stored blobs/handles so we don't leak/duplicate.
-const urlCache = new Map<string, string>();
+// LRU cache — oldest entries are revoked to prevent unbounded memory growth (#1).
+const urlCache = new ObjectUrlCache(30);
 
 /** Open a hidden <input> and resolve with the files the user picked (or none, on cancel). */
 function pickWithInput(opts: { directory?: boolean; multiple?: boolean; accept?: string }): Promise<FileList | null> {
@@ -108,8 +108,8 @@ export const webPlatform: PlatformAdapter = {
     if (source.kind === "object-url" || source.kind === "url") return source.url;
 
     if (source.kind === "blob") {
-      const cached = urlCache.get(source.blobId);
-      if (cached) return cached;
+      const hit = urlCache.get(source.blobId);
+      if (hit) return hit;
       const blob = await getBlob(source.blobId);
       if (!blob) throw new Error("Song data missing from storage. Re-import it.");
       const url = URL.createObjectURL(blob);
@@ -119,8 +119,8 @@ export const webPlatform: PlatformAdapter = {
 
     // Legacy libraries imported before blob storage still hold file handles.
     if (source.kind === "file-handle") {
-      const cached = urlCache.get(source.handleId);
-      if (cached) return cached;
+      const hit2 = urlCache.get(source.handleId);
+      if (hit2) return hit2;
       const handle = await getHandle(source.handleId);
       if (!handle) throw new Error("File handle missing. Re-import the folder.");
       const perm = handle as unknown as {

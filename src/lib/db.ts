@@ -62,7 +62,8 @@ export async function getAllTracks(): Promise<Track[]> {
 
 export async function clearLibrary(): Promise<void> {
   const d = await db();
-  await Promise.all([d.clear("tracks"), d.clear("handles"), d.clear("blobs")]);
+  // Also clear play events so Wrapped stats don't reference deleted tracks (#20).
+  await Promise.all([d.clear("tracks"), d.clear("handles"), d.clear("blobs"), d.clear("playEvents")]);
 }
 
 export async function saveHandle(id: string, handle: FileSystemFileHandle): Promise<void> {
@@ -87,11 +88,12 @@ export async function getBlob(id: string): Promise<Blob | undefined> {
   return row?.blob;
 }
 
-export async function deleteTrack(id: string, source?: { blobId?: string; handleId?: string }): Promise<void> {
+/** Delete a track and its associated storage (blob or file handle) (#24). */
+export async function deleteTrack(id: string, source: { kind: string; blobId?: string; handleId?: string }): Promise<void> {
   const d = await db();
   await d.delete("tracks", id);
-  if (source?.blobId) await d.delete("blobs", source.blobId);
-  if (source?.handleId) await d.delete("handles", source.handleId);
+  if (source.kind === "blob" && source.blobId) await d.delete("blobs", source.blobId);
+  if (source.kind === "file-handle" && source.handleId) await d.delete("handles", source.handleId);
 }
 
 export async function addPlayEvent(ev: PlayEvent): Promise<void> {
