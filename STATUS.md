@@ -10,8 +10,7 @@ Supabase cloud sync. See [README.md](README.md) for setup.
 
 - **Build:** clean — `tsc` and `npm run build` both pass with no errors.
 - **Deployed:** live at https://musiclauncher.vercel.app (production, deployed 2026-07-17).
-- **Git:** repository initialized but has **zero commits** — all files untracked. Deploys work
-  because Vercel CLI uploads the working directory directly, but there is no history or rollback.
+- **Git:** two commits — initial commit plus code-splitting/demo-persistence work.
 
 ## Working features
 
@@ -31,11 +30,15 @@ Supabase cloud sync. See [README.md](README.md) for setup.
    by title, artist, or album across the Songs, Albums, and Artists views, with a "no matches"
    empty state. Hidden while the library is empty.
 2. **Deployed to Vercel production** — verified the alias returns 200 and serves the new build.
+3. **Initial git commits** — the whole project is now under version control (was previously
+   an empty repo with everything untracked).
+4. **Code-splitting** (`vite.config.ts`) — vendor `manualChunks` split the single 681 kB bundle
+   into react (256 kB), supabase (214 kB), music-metadata (101 kB), vibrant (28 kB), and an
+   81 kB app chunk, so they load in parallel and cache independently.
+5. **Demo tracks survive reload** (`src/lib/demo.ts`) — demo WAVs are now saved to the IndexedDB
+   blob store (same path as imported files) instead of throwaway in-memory object URLs.
 
 ## Known limits / next steps
 
 - ALAC (`.m4a`) shows in the library but won't play in the browser (no native decoder)
-- Demo/file-picker imports use in-memory blob URLs and don't survive reload (folder imports do)
-- Main JS bundle is 681 kB minified — add code-splitting (`manualChunks`) if load time matters
-- No initial git commit yet
 - Later: gapless/crossfade, animated story-style Wrapped, lyrics
