@@ -147,9 +147,10 @@ export const tauriPlatform: PlatformAdapter = {
       // out ("no supported files were found"). Filter by extension ourselves.
       const selection = await open({ multiple: true, pickerMode: "document" });
       const picked = selection ? (Array.isArray(selection) ? selection : [selection]) : [];
-      const files = await Promise.all(
-        picked.map(async (uri) => ({ uri, name: await fileNameOf(uri) }))
-      );
+      const files = [];
+      for (const uri of picked) {
+        files.push({ uri, name: await fileNameOf(uri) });
+      }
       const tracks: Track[] = [];
       for (let i = 0; i < files.length; i++) {
         try {
