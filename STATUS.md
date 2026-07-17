@@ -1,16 +1,15 @@
-# Project Status — 2026-07-17 (updated)
+# Project Status - 2026-07-17 (updated)
 
 ## What this is
 
-MusicLauncher: a cross-platform music player blending Apple Music (lossless playback, liquid-glass UI)
-and Spotify (Wrapped-style stats). Ships as a Vercel web app and a Tauri Android app, with optional
-Supabase cloud sync. See [README.md](README.md) for setup.
+MusicLauncher is a cross-platform music player blending Apple Music lossless playback and liquid-glass UI with Spotify Wrapped-style stats. It ships as a Vercel web app and a Tauri Android app, with optional Supabase cloud sync. See [README.md](README.md) for setup.
 
 ## Current status
 
-- **Build:** clean — `tsc` and `npm run build` both pass with no errors.
+- **Build:** clean - `tsc` and `npm run build` pass with no errors.
 - **Deployed:** live at https://musiclauncher.vercel.app (production, deployed 2026-07-17).
-- **Git:** two commits — initial commit plus code-splitting/demo-persistence work.
+- **Android:** fresh arm64 release APK built at `src-tauri/gen/android/app/build/outputs/apk/arm64/release/`. It is unsigned until Android signing credentials are configured.
+- **Git:** four local commits, including `6b4c1b2 Add animated Replay story`. No remote is configured.
 
 ## Working features
 
@@ -19,56 +18,29 @@ Supabase cloud sync. See [README.md](README.md) for setup.
 - True lossless FLAC/WAV playback with Hi-Res / Lossless badge
 - Full player: play/pause, seek, next/prev, shuffle, repeat, volume, queue, Now Playing screen
 - Playlists (page + Supabase migration `20260716_playlists.sql`)
-- Wrapped page: top songs, top artists, minutes listened
+- Replay: top songs, top artists, minutes listened, and animated story scenes
 - Supabase cloud sync: auth, per-user storage library, Realtime feed shared with Android
 - Demo tracks (in-browser synthesized lossless WAV) for trying the app without music files
-- **Library search** *(new)*
-- **ALAC (Apple Lossless) playback** *(new)* — decoded to lossless PCM in JS
-- **Gapless playback + optional crossfade** *(new)*
-- **Animated Replay story** *(new)* - scroll-snapping listening moments with album art
-- **Lyrics view** *(new)* — synced/unsynced, tap-to-seek, editable
+- Library search
+- ALAC (Apple Lossless) playback, decoded to lossless PCM in JavaScript
+- Gapless playback with optional crossfade
+- Lyrics view: synced/unsynced, tap-to-seek, editable
 
 ## Changes made 2026-07-17
 
-1. **Library search** (`src/pages/LibraryPage.tsx`) — search input in the library header filters
-   by title, artist, or album across the Songs, Albums, and Artists views, with a "no matches"
-   empty state. Hidden while the library is empty.
-2. **Deployed to Vercel production** — verified the alias returns 200 and serves the new build.
-3. **Initial git commits** — the whole project is now under version control (was previously
-   an empty repo with everything untracked).
-4. **Code-splitting** (`vite.config.ts`) — vendor `manualChunks` split the single 681 kB bundle
-   into react (256 kB), supabase (214 kB), music-metadata (101 kB), vibrant (28 kB), and an
-   81 kB app chunk, so they load in parallel and cache independently.
-5. **Demo tracks survive reload** (`src/lib/demo.ts`) — demo WAVs are now saved to the IndexedDB
-   blob store (same path as imported files) instead of throwaway in-memory object URLs.
-6. **ALAC playback** — new `src/audio/alac.ts` decodes Apple Lossless in JS
-   (`@audio/decode-aac`, pure-JS port of Apple's reference decoder) and wraps the PCM in a
-   32-bit-float WAV blob URL, cached per track for the session. `resolveSource.ts` routes any
-   track whose codec matches `/alac/i` through it. **Verified:** decoded an ffmpeg-generated
-   ALAC file in Node — correct sample rate, frame count, and a clean 440 Hz sine came out.
-7. **Gapless playback + crossfade** — `AudioController` rewritten on two `<audio>` elements:
-   the idle one preloads the upcoming queue track, so auto-advance is an instant swap. Optional
-   equal-power crossfade (store setting `crossfadeSec`, persisted to localStorage) starts the
-   next track `crossfadeSec` before the end and fades the two elements. The player store
-   preloads on track load and on queue/repeat changes; the Now Playing screen has a
-   "Fade off / 3s / 6s / 12s" toggle next to Queue.
-8. **Lyrics** — `Track.lyrics` (`LyricLine[]`, optional per-line `timestamp` in seconds).
-   `metadata.ts` extracts them at import: synced ID3 SYLT (ms → s), then unsynced USLT, then a
-   raw-native-tag fallback because music-metadata 10.x drops the text of vorbis `LYRICS`
-   comments (FLAC/OGG). The Now Playing screen has a **Lyrics** toggle that flips the album art
-   to a scrolling lyrics view — synced lines auto-center and highlight, tap-to-seek; unsynced
-   lyrics are a plain scroll. Editable in the Edit Song Info modal (one line per row).
-   **Verified:** extraction tested end-to-end against ffmpeg-tagged FLAC (vorbis) and MP3 (USLT).
-
-9. **Animated Replay story** - the Wrapped page is now a sequence of listening moments: intro,
-   total time, top song, top artist, and a ranked listening stack. It uses local album art when
-   available, scroll snapping, and reduced-motion-safe reveals.
+1. **Library search** (`src/pages/LibraryPage.tsx`): search by title, artist, or album across Songs, Albums, and Artists, including a no-matches state.
+2. **Production web deployment:** Vercel serves the current build at https://musiclauncher.vercel.app.
+3. **Version control:** the project is under Git with the current Replay work committed locally.
+4. **Code splitting** (`vite.config.ts`): vendor chunks for React, Supabase, music-metadata, Vibrant, and the app.
+5. **Persistent demo tracks** (`src/lib/demo.ts`): demo WAVs save in IndexedDB like imported music.
+6. **ALAC playback** (`src/audio/alac.ts`): Apple Lossless is decoded to cached lossless PCM WAV for playback.
+7. **Gapless playback and crossfade:** two audio elements preload upcoming tracks; the Now Playing screen provides off, 3s, 6s, and 12s fade settings.
+8. **Lyrics:** import synced ID3 SYLT, unsynced USLT, and Vorbis lyrics where available. The Now Playing screen auto-centers synced lyrics, highlights the active line, supports tap-to-seek, and allows manual editing.
+9. **Animated Replay story:** the Wrapped page is now a sequence of listening moments: intro, total time, top song, top artist, and a ranked listening stack. It uses local album art, scroll snapping, and reduced-motion-safe reveals.
+10. **Release delivery:** deployed the current web build to Vercel production and rebuilt the arm64 Android APK. Git and Play Store publication remain pending their respective remote and signing configuration.
 
 ## Known limits / next steps
 
-- ALAC decode is session-cached per track; decoded WAVs are held in memory (fine for a queue,
-  could grow for huge ALAC libraries)
-- Crossfade advances the play counter at the fade point (a few seconds early) — acceptable
-  for stats purposes
-- Lyrics entered/edited by hand aren't synced to the cloud yet (only embedded tags travel with
-  the file); no auto-fetch from an online lyrics provider
+- ALAC decode is session-cached per track; decoded WAVs can grow memory use for huge libraries.
+- Crossfade advances the play counter at the fade point, a few seconds early.
+- Hand-edited lyrics stay on-device; there is no online lyrics auto-fetch.
