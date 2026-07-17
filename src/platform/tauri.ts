@@ -73,7 +73,7 @@ async function trackFromPath(path: string): Promise<Track> {
  * audio is COPIED into IndexedDB (same as the web build). The library is then
  * fully self-contained — songs are still there on reopen.
  */
-async function trackFromContentUri(uri: string, name: string, i: number): Promise<Track> {
+async function trackFromContentUri(uri: string, name: string, i: number, localDir: string): Promise<Track> {
   const bytes = await readFile(uri);
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   const safeName = name.replace(/\W+/g, "").slice(0, 8);
@@ -87,7 +87,7 @@ async function trackFromContentUri(uri: string, name: string, i: number): Promis
   await writeFile(relPath, bytes, { baseDir: BaseDirectory.AppLocalData });
   
   // Convert it into a path source so Tauri serves it via asset://
-  const absPath = await join(await appLocalDataDir(), relPath);
+  const absPath = await join(localDir, relPath);
   return trackFromBytes(bytes, name, { kind: "path", path: absPath });
 }
 
@@ -148,17 +148,36 @@ export const tauriPlatform: PlatformAdapter = {
       const selection = await open({ multiple: true, pickerMode: "document" });
       const picked = selection ? (Array.isArray(selection) ? selection : [selection]) : [];
       const files = [];
-      for (const uri of picked) {
-        files.push({ uri, name: await fileNameOf(uri) });
+      for (let i = 0; i < picked.length; i += 20) {
+        const chunk = picked.slice(i, i + 20);
+        const results = await Promise.all(
+          chunk.map(async (uri) => ({ uri, name: await fileNameOf(uri) }))
+        );
+        files.push(...results);
       }
+
       const tracks: Track[] = [];
-      for (let i = 0; i < files.length; i++) {
-        try {
-          tracks.push(await trackFromContentUri(files[i].uri, files[i].name, i));
-        } catch (err) {
-          console.error("Import failed for", files[i].name, err);
+      let completed = 0;
+      const localDir = await appLocalDataDir();
+      
+      for (let i = 0; i < files.length; i += 5) {
+        const chunk = files.slice(i, i + 5);
+        const results = await Promise.all(
+          chunk.map(async (file, j) => {
+            try {
+              return await trackFromContentUri(file.uri, file.name, i + j, localDir);
+            } catch (err) {
+              console.error("Import failed for", file.name, err);
+              return null;
+            }
+          })
+        );
+        
+        for (const track of results) {
+          if (track) tracks.push(track);
         }
-        onProgress?.(i + 1, files.length);
+        completed += chunk.length;
+        onProgress?.(completed, files.length);
       }
       return tracks;
     }
