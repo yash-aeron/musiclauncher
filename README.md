@@ -1,6 +1,6 @@
 <div align="center">
   
-# 🎵 MusicLauncher
+# MusicLauncher
 
 **The Cross-Platform, Lossless Music Player of the Future.**
 
@@ -17,17 +17,17 @@
 
 ---
 
-## ✨ Features
+## Features
 
-- 💧 **Liquid-Glass UI**: Immersive, frosted `backdrop-filter` panels with an ambient glow that dynamically extracts colors from the current album art and smoothly animates on track changes.
-- 🎧 **Lossless & Hi-Res Audio**: Native FLAC/WAV playback. ALAC (`.m4a`) is fully decoded in JavaScript to lossless PCM. An intelligent Hi-Res badge appears based on real file metadata (>16-bit or >48kHz).
-- 📱 **Cross-Platform**: Deploy as a Vercel Web App or a native Tauri Android application sharing the exact same codebase.
-- ☁️ **Cloud Library Sync**: Sync your music across devices seamlessly via Supabase. Music is securely stored in a private bucket and synced using Supabase Realtime.
-- 🔄 **Gapless Playback & Crossfade**: Flawless auto-advancing with a preloading dual-audio-element engine. Customize crossfading between 3s, 6s, 12s, or off.
-- 📊 **Live Wrapped Stats**: Every listen is logged. Your "Wrapped" page continuously updates your top songs, top artists, and total listening time.
-- 🎤 **Synchronized Lyrics**: Parses embedded lyrics (ID3 SYLT, USLT/vorbis). Synced lines auto-scroll and highlight like karaoke. Tap any line to instantly seek to that moment in the track.
+- **Liquid-Glass UI**: Immersive, frosted `backdrop-filter` panels with an ambient glow that dynamically extracts colors from the current album art and smoothly animates on track changes.
+- **Lossless & Hi-Res Audio**: Native FLAC/WAV playback. ALAC (`.m4a`) is fully decoded in JavaScript to lossless PCM. An intelligent Hi-Res badge appears based on real file metadata (>16-bit or >48kHz).
+- **Cross-Platform**: Deploy as a Vercel Web App or a native Tauri Android application sharing the exact same codebase.
+- **Cloud Library Sync**: Sync your music across devices seamlessly via Supabase. Music is securely stored in a private bucket and synced using Supabase Realtime.
+- **Gapless Playback & Crossfade**: Flawless auto-advancing with a preloading dual-audio-element engine. Customize crossfading between 3s, 6s, 12s, or off.
+- **Live Wrapped Stats**: Every listen is logged. Your "Wrapped" page continuously updates your top songs, top artists, and total listening time.
+- **Synchronized Lyrics**: Parses embedded lyrics (ID3 SYLT, USLT/vorbis). Synced lines auto-scroll and highlight like karaoke. Tap any line to instantly seek to that moment in the track.
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Local Development
 
@@ -44,7 +44,7 @@
 
 *No music on hand? Just click **Load demo tracks** on the welcome screen. The app synthesizes real lossless WAV tones in the browser so you can test the player immediately.*
 
-### ☁️ Cloud Sync & Deployment
+### Cloud Sync & Deployment
 
 1. **Supabase Setup**: 
    - Create a new Supabase project.
@@ -62,7 +62,7 @@
    - Run Android dev environment: `npm run android:dev`
    - Build a standalone APK: `npm run android:build` (Use `npm run android:build:universal` for 32-bit/emulator support).
 
-## 📂 Project Structure
+## Project Structure
 
 | Directory | Purpose |
 | :--- | :--- |
@@ -73,14 +73,14 @@
 | `src/lib/` | Helpers (Metadata parsing, colors, indexedDB, cloud sync) |
 | `src-tauri/` | Rust-based Tauri backend for Android and Desktop builds |
 
-## 🛠️ Tech Stack
+## Tech Stack
 - **Frontend**: React, Tailwind CSS, Framer Motion
 - **State**: Zustand
 - **Audio**: Web Audio API, `music-metadata`, `@audio/decode-aac`
 - **Backend & DB**: Supabase (Auth, Postgres, Storage, Realtime)
 - **Native Wrap**: Tauri (Android support)
 
-## 📌 Known Limitations
+## Known Limitations
 - ALAC decoding is front-loaded to memory, meaning very large ALAC tracks may have a brief pause before the first playback begins.
 - Demo track imports use in-memory blob URLs and will reset upon reloading the page. (Real folder imports persist via File System Access API handles).
 
