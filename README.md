@@ -31,20 +31,23 @@ real lossless WAV tones in-browser so you can try everything immediately.
 - **Local import** — pick a folder; tags, album art, sample rate & bit depth are parsed
   (`music-metadata`) and the library persists in IndexedDB. File handles are stored so
   imported folders survive reloads.
-- **Lossless** — FLAC/WAV play in true lossless; a **Hi-Res / Lossless** badge is driven by
+- **Lossless** — FLAC/WAV play natively; **ALAC** (Apple Lossless `.m4a`) is decoded to
+  lossless PCM in JS (`@audio/decode-aac`). A **Hi-Res / Lossless** badge is driven by
   real file metadata (>16-bit or >48kHz → Hi-Res).
 - **Player** — play/pause, seek, next/prev, shuffle, repeat (all/one), volume, a bottom
-  glass bar, and a full-screen ambient Now Playing view.
+  glass bar, and a full-screen ambient Now Playing view. Auto-advance is **gapless**
+  (the next track preloads on a second audio element), with an optional crossfade
+  (off/3s/6s/12s toggle on the Now Playing screen).
 - **Wrapped** — playback logs listening events; the Wrapped page shows top songs, top
   artists, and minutes listened, live.
 
 ## Known limits / next steps
 
-- **ALAC** (Apple Lossless `.m4a`) can't be decoded natively by browsers — it shows in the
-  library but won't play until we add a decoder or move to a Tauri/Electron shell.
+- ALAC decoding happens up front (whole file → WAV blob, cached per session), so very long
+  ALAC tracks pay a short decode pause before first play.
 - Demo/`<input>` imports use in-memory blob URLs and don't survive a reload (only real
   folder imports via file handles do).
-- Later: playlists, search, gapless/crossfade, full animated story-style Wrapped, lyrics.
+- Later: full animated story-style Wrapped, lyrics.
 
 ## Layout
 

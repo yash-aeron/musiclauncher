@@ -34,6 +34,8 @@ interface PlayerState {
   volume: number;
   shuffle: boolean;
   repeat: RepeatMode;
+  /** Crossfade duration in seconds; 0 = gapless (no fade). */
+  crossfadeSec: number;
 
   // Actions
   setLibrary: (tracks: Track[]) => void;
@@ -71,6 +73,7 @@ interface PlayerState {
   setVolume: (v: number) => void;
   toggleShuffle: () => void;
   cycleRepeat: () => void;
+  setCrossfade: (sec: number) => void;
 
   current: () => Track | null;
 }
@@ -81,6 +84,7 @@ let listenedSec = 0;
 let lastTickTime = 0;
 let loggedForIndex = -1;
 let loggedEventId: string | null = null; // the play event to finalize on flush
+let crossfadeTriggeredFor = -1; // queue index whose early crossfade-advance already fired
 
 function shuffled<T>(arr: T[]): T[] {
   const a = arr.slice();
@@ -90,6 +94,17 @@ function shuffled<T>(arr: T[]): T[] {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+const CROSSFADE_KEY = "ml-crossfade-sec";
+
+function savedCrossfade(): number {
+  try {
+    const v = Number(localStorage.getItem(CROSSFADE_KEY));
+    return isFinite(v) && v > 0 ? v : 0;
+  } catch {
+    return 0;
+  }
 }
 
 export const usePlayer = create<PlayerState>((set, get) => {
@@ -104,6 +119,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
         lastTickTime = cur;
         set({ position: cur, duration: dur || get().duration });
         maybeLogPlay();
+        maybeStartCrossfade(cur, dur);
       },
       onEnded: () => {
         flushPlay();
@@ -112,7 +128,22 @@ export const usePlayer = create<PlayerState>((set, get) => {
       onPlayingChange: (p) => set({ playing: p }),
       onError: (msg) => set({ toast: msg }),
     });
+    controller.crossfadeSec = get().crossfadeSec;
     return controller;
+  }
+
+  /**
+   * Buffer whatever track would play after the current one on the idle
+   * element, so auto-advance is gapless. Mirrors the logic in next(auto).
+   */
+  function preloadUpcoming() {
+    const { queue, index, repeat } = get();
+    if (index < 0 || queue.length === 0) return;
+    let upcoming: Track | null = null;
+    if (repeat === "one") upcoming = queue[index];
+    else if (index + 1 < queue.length) upcoming = queue[index + 1];
+    else if (repeat === "all") upcoming = queue[0];
+    void ensureController().preloadNext(upcoming);
   }
 
   function maybeLogPlay() {
@@ -152,14 +183,37 @@ export const usePlayer = create<PlayerState>((set, get) => {
     lastTickTime = 0;
   }
 
+  /**
+   * With crossfade on, advance early — crossfadeSec before the end — so the
+   * next track fades in while this one drains out. The controller keeps the
+   * outgoing element playing through the fade; its natural "ended" event is
+   * ignored once it's no longer the active element.
+   */
+  function maybeStartCrossfade(cur: number, dur: number) {
+    const { crossfadeSec, index, queue, repeat } = get();
+    if (crossfadeSec <= 0 || !isFinite(dur) || dur <= 0 || index < 0) return;
+    if (crossfadeTriggeredFor === index) return;
+    // Nothing follows this track → let it end naturally.
+    const hasNext = repeat === "one" || index + 1 < queue.length || repeat === "all";
+    if (!hasNext) return;
+    // Don't fade tracks shorter than twice the fade window.
+    if (dur < crossfadeSec * 2 || cur < dur - crossfadeSec) return;
+    crossfadeTriggeredFor = index;
+    flushPlay();
+    get().next(true);
+  }
+
   function loadIndex(index: number) {
     const { queue } = get();
     const track = queue[index];
     if (!track) return;
     flushPlay();
     loggedForIndex = -1;
+    crossfadeTriggeredFor = -1;
     set({ index, position: 0, duration: track.durationSec || 0 });
-    ensureController().loadAndPlay(track);
+    void ensureController()
+      .loadAndPlay(track)
+      .then(() => preloadUpcoming());
   }
 
   return {
@@ -183,6 +237,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
     volume: 1,
     shuffle: false,
     repeat: "off",
+    crossfadeSec: savedCrossfade(),
 
     setLibrary: (tracks) => set({ library: tracks }),
     addToLibrary: (tracks) =>
@@ -299,6 +354,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const q = queue.slice();
       q.splice(index + 1, 0, track);
       set({ queue: q });
+      preloadUpcoming();
     },
 
     addToQueue: (track) => {
@@ -308,6 +364,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
         return;
       }
       set({ queue: [...queue, track] });
+      preloadUpcoming();
     },
 
     removeFromQueue: (queueIndex) => {
@@ -316,6 +373,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const q = queue.slice();
       q.splice(queueIndex, 1);
       set({ queue: q, index: queueIndex < index ? index - 1 : index });
+      preloadUpcoming();
     },
 
     jumpToQueueIndex: (queueIndex) => {
@@ -367,10 +425,23 @@ export const usePlayer = create<PlayerState>((set, get) => {
     },
 
     toggleShuffle: () => set((s) => ({ shuffle: !s.shuffle })),
-    cycleRepeat: () =>
+    cycleRepeat: () => {
       set((s) => ({
         repeat: s.repeat === "off" ? "all" : s.repeat === "all" ? "one" : "off",
-      })),
+      }));
+      preloadUpcoming(); // repeat mode changes what plays next
+    },
+
+    setCrossfade: (sec) => {
+      const crossfadeSec = Math.max(0, sec);
+      set({ crossfadeSec });
+      ensureController().crossfadeSec = crossfadeSec;
+      try {
+        localStorage.setItem(CROSSFADE_KEY, String(crossfadeSec));
+      } catch {
+        // Storage unavailable (private mode) — setting just won't persist.
+      }
+    },
 
     current: () => {
       const { queue, index } = get();

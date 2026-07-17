@@ -73,7 +73,14 @@
       "Bash(grep -iA5 \"alias\\\\|target\")",
       "Bash(git add *)",
       "Bash(git commit -m 'Initial commit: MusicLauncher web + Tauri Android player *)",
-      "Bash(git commit -q -m 'Code-split vendor chunks; persist demo tracks in IndexedDB *)"
+      "Bash(git commit -q -m 'Code-split vendor chunks; persist demo tracks in IndexedDB *)",
+      "Bash(git commit -q -m 'Update STATUS.md *)",
+      "WebSearch",
+      "Bash(npm view *)",
+      "Bash(npm search *)",
+      "Bash(ffmpeg -version)",
+      "Bash(ffmpeg -y -f lavfi -i \"sine=frequency=440:duration=2\" -c:a alac -sample_fmt s16p alac_test.m4a)",
+      "Bash(node *)"
     ]
   }
 }

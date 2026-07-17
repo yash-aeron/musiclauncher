@@ -4,7 +4,7 @@ import { AlbumArt } from "./AlbumArt";
 import { LosslessBadge } from "./LosslessBadge";
 import { PlaybackControls } from "./PlaybackControls";
 import { Slider } from "./Slider";
-import { Chevron, VolumeIcon, QueueIcon } from "./Icons";
+import { Chevron, VolumeIcon, QueueIcon, CrossfadeIcon } from "./Icons";
 import { QueuePanel } from "./QueuePanel";
 import { formatDuration, qualityLabel } from "../lib/format";
 
@@ -20,7 +20,16 @@ export function NowPlayingScreen() {
   const setVolume = usePlayer((s) => s.setVolume);
   const openNowPlaying = usePlayer((s) => s.openNowPlaying);
   const openQueue = usePlayer((s) => s.openQueue);
+  const crossfadeSec = usePlayer((s) => s.crossfadeSec);
+  const setCrossfade = usePlayer((s) => s.setCrossfade);
   const reduce = useReducedMotion();
+
+  // Off → 3s → 6s → 12s → Off
+  const CROSSFADE_STEPS = [0, 3, 6, 12];
+  function cycleCrossfade() {
+    const at = CROSSFADE_STEPS.indexOf(crossfadeSec);
+    setCrossfade(CROSSFADE_STEPS[(at + 1) % CROSSFADE_STEPS.length] ?? 0);
+  }
 
   function onDragEnd(_: unknown, info: PanInfo) {
     // Swipe down anywhere on the sheet to dismiss — velocity OR distance.
@@ -96,7 +105,7 @@ export function NowPlayingScreen() {
               <VolumeIcon width={20} height={20} />
             </div>
 
-            {/* Queue row */}
+            {/* Queue + crossfade row */}
             <div className="mt-7 flex items-center justify-center gap-10 text-[13px] font-medium text-white/55">
               <button
                 onClick={() => openQueue(!queueOpen)}
@@ -104,6 +113,14 @@ export function NowPlayingScreen() {
               >
                 <QueueIcon width={16} height={16} />
                 Queue
+              </button>
+              <button
+                onClick={cycleCrossfade}
+                title="Crossfade between songs"
+                className={`flex items-center gap-1.5 ${crossfadeSec > 0 ? "text-[color:var(--accent-strong)]" : "hover:text-white"}`}
+              >
+                <CrossfadeIcon width={16} height={16} />
+                {crossfadeSec > 0 ? `Fade ${crossfadeSec}s` : "Fade off"}
               </button>
             </div>
 

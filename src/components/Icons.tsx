@@ -137,3 +137,9 @@ export const PlaylistIcon = (p: P) => (
     <path d="M18 8l3-1v3" />
   </svg>
 );
+export const CrossfadeIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M2 18C8 18 10 6 16 6h6" />
+    <path d="M2 6c6 0 8 12 14 12h6" />
+  </svg>
+);

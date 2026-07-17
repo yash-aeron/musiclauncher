@@ -1,4 +1,4 @@
-# Project Status — 2026-07-17
+# Project Status — 2026-07-17 (updated)
 
 ## What this is
 
@@ -23,6 +23,8 @@ Supabase cloud sync. See [README.md](README.md) for setup.
 - Supabase cloud sync: auth, per-user storage library, Realtime feed shared with Android
 - Demo tracks (in-browser synthesized lossless WAV) for trying the app without music files
 - **Library search** *(new)*
+- **ALAC (Apple Lossless) playback** *(new)* — decoded to lossless PCM in JS
+- **Gapless playback + optional crossfade** *(new)*
 
 ## Changes made 2026-07-17
 
@@ -37,8 +39,22 @@ Supabase cloud sync. See [README.md](README.md) for setup.
    81 kB app chunk, so they load in parallel and cache independently.
 5. **Demo tracks survive reload** (`src/lib/demo.ts`) — demo WAVs are now saved to the IndexedDB
    blob store (same path as imported files) instead of throwaway in-memory object URLs.
+6. **ALAC playback** — new `src/audio/alac.ts` decodes Apple Lossless in JS
+   (`@audio/decode-aac`, pure-JS port of Apple's reference decoder) and wraps the PCM in a
+   32-bit-float WAV blob URL, cached per track for the session. `resolveSource.ts` routes any
+   track whose codec matches `/alac/i` through it. **Verified:** decoded an ffmpeg-generated
+   ALAC file in Node — correct sample rate, frame count, and a clean 440 Hz sine came out.
+7. **Gapless playback + crossfade** — `AudioController` rewritten on two `<audio>` elements:
+   the idle one preloads the upcoming queue track, so auto-advance is an instant swap. Optional
+   equal-power crossfade (store setting `crossfadeSec`, persisted to localStorage) starts the
+   next track `crossfadeSec` before the end and fades the two elements. The player store
+   preloads on track load and on queue/repeat changes; the Now Playing screen has a
+   "Fade off / 3s / 6s / 12s" toggle next to Queue.
 
 ## Known limits / next steps
 
-- ALAC (`.m4a`) shows in the library but won't play in the browser (no native decoder)
-- Later: gapless/crossfade, animated story-style Wrapped, lyrics
+- ALAC decode is session-cached per track; decoded WAVs are held in memory (fine for a queue,
+  could grow for huge ALAC libraries)
+- Crossfade advances the play counter at the fade point (a few seconds early) — acceptable
+  for stats purposes
+- Later: animated story-style Wrapped, lyrics
