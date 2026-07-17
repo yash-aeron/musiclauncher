@@ -79,15 +79,11 @@ async function trackFromContentUri(uri: string, name: string, i: number, localDi
   const safeName = name.replace(/\W+/g, "").slice(0, 8);
   const fileName = `${Date.now().toString(36)}-${i}-${safeName}${ext ? `.${ext}` : ""}`;
   
-  // Ensure the imported directory exists (no-op if it does)
-  await mkdir("imported", { baseDir: BaseDirectory.AppLocalData, recursive: true }).catch(() => {});
-  
   // Write the actual audio bytes to the native filesystem to bypass IndexedDB memory/quota limits
-  const relPath = await join("imported", fileName);
-  await writeFile(relPath, bytes, { baseDir: BaseDirectory.AppLocalData });
+  await writeFile(fileName, bytes, { baseDir: BaseDirectory.AppLocalData });
   
   // Convert it into a path source so Tauri serves it via asset://
-  const absPath = await join(localDir, relPath);
+  const absPath = await join(localDir, fileName);
   return trackFromBytes(bytes, name, { kind: "path", path: absPath });
 }
 
