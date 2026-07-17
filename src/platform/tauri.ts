@@ -1,8 +1,8 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { readDir, readFile, type DirEntry } from "@tauri-apps/plugin-fs";
+import { readDir, readFile, writeFile, mkdir, BaseDirectory, type DirEntry } from "@tauri-apps/plugin-fs";
 import { platform } from "@tauri-apps/plugin-os";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { basename } from "@tauri-apps/api/path";
+import { basename, appLocalDataDir, join } from "@tauri-apps/api/path";
 import { saveBlob, getBlob } from "../lib/db";
 import { trackFromBytes, bytesToDataUrl } from "../lib/metadata";
 import type { Track, TrackSource } from "../types";
@@ -76,11 +76,19 @@ async function trackFromPath(path: string): Promise<Track> {
 async function trackFromContentUri(uri: string, name: string, i: number): Promise<Track> {
   const bytes = await readFile(uri);
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  const blobId = `b-${Date.now().toString(36)}-${i}-${name.replace(/\W+/g, "").slice(0, 8)}`;
-  // Copy into a fresh ArrayBuffer-backed blob (readFile may return a view).
-  const copy = new Uint8Array(bytes);
-  await saveBlob(blobId, new Blob([copy.buffer as ArrayBuffer], { type: MIME_BY_EXT[ext] || "audio/*" }));
-  return trackFromBytes(bytes, name, { kind: "blob", blobId });
+  const safeName = name.replace(/\W+/g, "").slice(0, 8);
+  const fileName = `${Date.now().toString(36)}-${i}-${safeName}${ext ? `.${ext}` : ""}`;
+  
+  // Ensure the imported directory exists (no-op if it does)
+  await mkdir("imported", { baseDir: BaseDirectory.AppLocalData, recursive: true }).catch(() => {});
+  
+  // Write the actual audio bytes to the native filesystem to bypass IndexedDB memory/quota limits
+  const relPath = await join("imported", fileName);
+  await writeFile(relPath, bytes, { baseDir: BaseDirectory.AppLocalData });
+  
+  // Convert it into a path source so Tauri serves it via asset://
+  const absPath = await join(await appLocalDataDir(), relPath);
+  return trackFromBytes(bytes, name, { kind: "path", path: absPath });
 }
 
 // LRU cache — oldest entries are revoked to prevent unbounded memory growth (#1).
