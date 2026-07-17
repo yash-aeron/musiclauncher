@@ -6,6 +6,7 @@ import {
   saveTracks,
   savePlaylist,
   deletePlaylist as deletePlaylistDb,
+  deleteTrack as deleteTrackDb,
 } from "../lib/db";
 import { syncPlayEvent, pushPlaylist, removeCloudPlaylist } from "../lib/cloud";
 import { trackKey } from "../lib/albums";
@@ -40,6 +41,7 @@ interface PlayerState {
   // Actions
   setLibrary: (tracks: Track[]) => void;
   addToLibrary: (tracks: Track[]) => void;
+  deleteTracks: (ids: string[]) => void;
   setView: (v: ViewName) => void;
   openAlbum: (key: string | null) => void;
   openPlaylist: (id: string | null) => void;
@@ -252,6 +254,35 @@ export const usePlayer = create<PlayerState>((set, get) => {
     setLibrary: (tracks) => set({ library: tracks }),
     addToLibrary: (tracks) =>
       set((s) => ({ library: [...tracks, ...s.library] })),
+    deleteTracks: (ids) => {
+      const setIds = new Set(ids);
+      set((s) => {
+        const newLibrary = s.library.filter((t) => !setIds.has(t.id));
+        
+        let newQueue = s.queue;
+        let newIndex = s.index;
+        
+        // If tracks are in queue, filter them out and adjust index
+        if (s.queue.some(t => setIds.has(t.id))) {
+          const currentTrackId = s.queue[s.index]?.id;
+          newQueue = s.queue.filter((t) => !setIds.has(t.id));
+          if (currentTrackId && !setIds.has(currentTrackId)) {
+            newIndex = newQueue.findIndex((t) => t.id === currentTrackId);
+          } else {
+            // Current track was deleted, just stay at index or clamp
+            newIndex = Math.min(s.index, newQueue.length - 1);
+          }
+        }
+
+        // Trigger background deletion for each track
+        const tracksToDelete = s.library.filter(t => setIds.has(t.id));
+        tracksToDelete.forEach((t) => {
+          deleteTrackDb(t.id, t.source).catch(e => console.error("Failed to delete track", e));
+        });
+
+        return { library: newLibrary, queue: newQueue, index: newIndex };
+      });
+    },
     setView: (view) => set({ view, selectedAlbumKey: null, selectedPlaylistId: null }),
     openAlbum: (selectedAlbumKey) => set({ selectedAlbumKey }),
     openPlaylist: (selectedPlaylistId) => set({ selectedPlaylistId }),

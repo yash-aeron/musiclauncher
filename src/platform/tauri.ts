@@ -84,7 +84,7 @@ async function trackFromContentUri(uri: string, name: string, i: number, localDi
   
   // Convert it into a path source so Tauri serves it via asset://
   const absPath = await join(localDir, fileName);
-  return trackFromBytes(bytes, name, { kind: "path", path: absPath });
+  return trackFromBytes(bytes, name, { kind: "native", ref: absPath });
 }
 
 // LRU cache — oldest entries are revoked to prevent unbounded memory growth (#1).

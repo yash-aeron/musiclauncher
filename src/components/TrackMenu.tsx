@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { usePlayer } from "../store/player";
-import { MoreIcon, Play, QueueIcon, PlaylistIcon, Pencil } from "./Icons";
+import { MoreIcon, Play, QueueIcon, PlaylistIcon, Pencil, TrashIcon } from "./Icons";
 import type { Track } from "../types";
 
 /** "⋯" menu on each row: Play Next / Add to Queue / Add to Playlist / Edit. */
@@ -11,6 +11,7 @@ export function TrackMenu({ track }: { track: Track }) {
   const addToQueue = usePlayer((s) => s.addToQueue);
   const openAddToPlaylist = usePlayer((s) => s.openAddToPlaylist);
   const openEditTrack = usePlayer((s) => s.openEditTrack);
+  const deleteTracks = usePlayer((s) => s.deleteTracks);
   const setToast = usePlayer((s) => s.setToast);
 
   useEffect(() => {
@@ -48,6 +49,16 @@ export function TrackMenu({ track }: { track: Track }) {
       label: "Edit Song",
       icon: <Pencil width={15} height={15} />,
       run: () => openEditTrack(track.id),
+    },
+    {
+      label: "Remove from Library",
+      icon: <TrashIcon width={15} height={15} />,
+      run: () => {
+        if (confirm(`Remove “${track.title}” from your library?`)) {
+          deleteTracks([track.id]);
+          setToast(`Removed “${track.title}”.`);
+        }
+      },
     },
   ];
 

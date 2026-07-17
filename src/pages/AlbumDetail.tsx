@@ -3,7 +3,7 @@ import { usePlayer } from "../store/player";
 import { AlbumArt } from "../components/AlbumArt";
 import { LosslessBadge } from "../components/LosslessBadge";
 import { TrackMenu } from "../components/TrackMenu";
-import { Play, Shuffle, Chevron } from "../components/Icons";
+import { Play, Shuffle, Chevron, TrashIcon } from "../components/Icons";
 import { groupAlbums } from "../lib/albums";
 import { formatDuration, qualityLabel } from "../lib/format";
 import type { Track } from "../types";
@@ -79,6 +79,20 @@ export function AlbumDetail({ tracks, albumKey }: { tracks: Track[]; albumKey: s
             <button onClick={shuffleAll} className="pill-control px-5 py-2.5 text-[15px]">
               <Shuffle width={18} height={18} />
               Shuffle
+            </button>
+            <button
+              onClick={() => {
+                if (confirm(`Remove the album “${album.title}” from your library?`)) {
+                  usePlayer.getState().deleteTracks(album.tracks.map((t) => t.id));
+                  openAlbum(null);
+                  usePlayer.getState().setToast(`Removed album “${album.title}”.`);
+                }
+              }}
+              className="pill-control px-5 py-2.5 text-[15px] opacity-70 hover:bg-white/20 hover:text-red-400 transition"
+              title="Remove Album"
+            >
+              <TrashIcon width={16} height={16} />
+              Remove
             </button>
           </div>
         </div>

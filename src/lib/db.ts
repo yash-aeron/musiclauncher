@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
-import type { PlayEvent, Playlist, Track } from "../types";
+import type { PlayEvent, Playlist, Track, TrackSource } from "../types";
 
 interface MusicDB extends DBSchema {
   tracks: {
@@ -88,12 +88,25 @@ export async function getBlob(id: string): Promise<Blob | undefined> {
   return row?.blob;
 }
 
-/** Delete a track and its associated storage (blob or file handle) (#24). */
-export async function deleteTrack(id: string, source: { kind: string; blobId?: string; handleId?: string }): Promise<void> {
+/** Delete a track and its associated storage (blob, file handle, or Android native copy). */
+export async function deleteTrack(id: string, source: TrackSource): Promise<void> {
   const d = await db();
   await d.delete("tracks", id);
   if (source.kind === "blob" && source.blobId) await d.delete("blobs", source.blobId);
   if (source.kind === "file-handle" && source.handleId) await d.delete("handles", source.handleId);
+  if (source.kind === "native") {
+    // On Android, the file was copied into AppLocalData. Delete it to free space.
+    // On Desktop, the file is a reference to the user's original music folder, so leave it alone.
+    const isAndroid = navigator.userAgent.toLowerCase().includes("android");
+    if (isAndroid) {
+      try {
+        const { remove } = await import("@tauri-apps/plugin-fs");
+        await remove(source.ref);
+      } catch (e) {
+        console.warn("Failed to delete native file on Android", e);
+      }
+    }
+  }
 }
 
 export async function addPlayEvent(ev: PlayEvent): Promise<void> {
