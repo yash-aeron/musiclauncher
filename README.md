@@ -1,59 +1,90 @@
-# MusicLauncher
+<div align="center">
+  
+# 🎵 MusicLauncher
 
-A cross-platform music player that blends **Apple Music** (lossless playback + "liquid glass" UI)
-and **Spotify** (Wrapped-style listening stats). It ships as a Vercel web app and a separate
-Tauri Android app, with an optional Supabase cloud library shared by the same signed-in user.
+**The Cross-Platform, Lossless Music Player of the Future.**
 
-## Run it
+<p align="center">
+  <img src="https://img.shields.io/badge/react-black?style=for-the-badge&logo=react" alt="React" />
+  <img src="https://img.shields.io/badge/tauri-black?style=for-the-badge&logo=tauri" alt="Tauri" />
+  <img src="https://img.shields.io/badge/supabase-black?style=for-the-badge&logo=supabase" alt="Supabase" />
+  <img src="https://img.shields.io/badge/typescript-black?style=for-the-badge&logo=typescript" alt="TypeScript" />
+</p>
 
-```bash
-npm install
-npm run dev        # opens http://localhost:5175
-```
+*MusicLauncher blends the liquid-glass aesthetics and lossless audio of Apple Music with the hyper-personalized stats of Spotify Wrapped—available everywhere on the Web and Android.*
 
-## Cloud sync, Vercel, and Android
+</div>
 
-1. Create a Supabase project, then run [`supabase/migrations/20260711_music_sync.sql`](supabase/migrations/20260711_music_sync.sql) in its SQL editor.
-2. Copy `.env.example` to `.env.local`, add the project's URL and anon key, and add the same values to Vercel's environment variables. Set Supabase Auth's Site URL and redirect URL to your Vercel domain.
-3. Import music while signed in. Files are copied once to a private per-user library namespace in Supabase Storage; any signed-in web or Android device then receives the library and listening history through Realtime.
-4. Deploy the web app by importing this repository into Vercel (the included `vercel.json` handles SPA navigation). For Android, run `npm run tauri android init` once, then use `npm run android:dev` for live development or `npm run android:build` for an arm64 standalone APK. Use `npm run android:build:universal` only when one APK must also support 32-bit devices and emulators. CI builds are unsigned unless Android signing credentials are configured. On Windows, Tauri automatically uses Android Studio's bundled JDK.
+---
 
-The mobile build is a separate Android package, but uses the same Supabase login, database, storage bucket, and Realtime feed as the web app.
+## ✨ Features
 
-Open in **Chrome or Edge** for folder import (File System Access API). Firefox falls back
-to a multi-file picker. No music on hand? Click **Load demo tracks** — the app synthesizes
-real lossless WAV tones in-browser so you can try everything immediately.
+- 💧 **Liquid-Glass UI**: Immersive, frosted `backdrop-filter` panels with an ambient glow that dynamically extracts colors from the current album art and smoothly animates on track changes.
+- 🎧 **Lossless & Hi-Res Audio**: Native FLAC/WAV playback. ALAC (`.m4a`) is fully decoded in JavaScript to lossless PCM. An intelligent Hi-Res badge appears based on real file metadata (>16-bit or >48kHz).
+- 📱 **Cross-Platform**: Deploy as a Vercel Web App or a native Tauri Android application sharing the exact same codebase.
+- ☁️ **Cloud Library Sync**: Sync your music across devices seamlessly via Supabase. Music is securely stored in a private bucket and synced using Supabase Realtime.
+- 🔄 **Gapless Playback & Crossfade**: Flawless auto-advancing with a preloading dual-audio-element engine. Customize crossfading between 3s, 6s, 12s, or off.
+- 📊 **Live Wrapped Stats**: Every listen is logged. Your "Wrapped" page continuously updates your top songs, top artists, and total listening time.
+- 🎤 **Synchronized Lyrics**: Parses embedded lyrics (ID3 SYLT, USLT/vorbis). Synced lines auto-scroll and highlight like karaoke. Tap any line to instantly seek to that moment in the track.
 
-## What works today
+## 🚀 Getting Started
 
-- **Liquid-glass UI** — frosted `backdrop-filter` panels, and an ambient background whose
-  glow is extracted from the current album art and animates on every track change.
-- **Local import** — pick a folder; tags, album art, sample rate & bit depth are parsed
-  (`music-metadata`) and the library persists in IndexedDB. File handles are stored so
-  imported folders survive reloads.
-- **Lossless** — FLAC/WAV play natively; **ALAC** (Apple Lossless `.m4a`) is decoded to
-  lossless PCM in JS (`@audio/decode-aac`). A **Hi-Res / Lossless** badge is driven by
-  real file metadata (>16-bit or >48kHz → Hi-Res).
-- **Player** — play/pause, seek, next/prev, shuffle, repeat (all/one), volume, a bottom
-  glass bar, and a full-screen ambient Now Playing view. Auto-advance is **gapless**
-  (the next track preloads on a second audio element), with an optional crossfade
-  (off/3s/6s/12s toggle on the Now Playing screen).
-- **Wrapped** — playback logs listening events; the Wrapped page shows top songs, top
-  artists, and minutes listened, live.
-- **Lyrics** — embedded lyrics (synced ID3 SYLT or plain USLT/vorbis) are parsed on import
-  and shown in the Now Playing screen; synced lines auto-scroll, highlight, and are
-  tap-to-seek. Add or edit lyrics by hand from **Edit Song Info**.
+### Local Development
 
-## Known limits / next steps
+1. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-- ALAC decoding happens up front (whole file → WAV blob, cached per session), so very long
-  ALAC tracks pay a short decode pause before first play.
-- Demo/`<input>` imports use in-memory blob URLs and don't survive a reload (only real
-  folder imports via file handles do).
-- Hand-edited lyrics stay on-device (embedded tags still travel with the file); no online
-  lyrics auto-fetch yet.
+2. **Run the local development server**
+   ```bash
+   npm run dev
+   ```
+   > Opens at `http://localhost:5175`
 
-## Layout
+*No music on hand? Just click **Load demo tracks** on the welcome screen. The app synthesizes real lossless WAV tones in the browser so you can test the player immediately.*
 
-`src/lib` data (import, metadata, colors, db), `src/audio` playback engine,
-`src/store/player.ts` Zustand state, `src/components` + `src/pages` UI.
+### ☁️ Cloud Sync & Deployment
+
+1. **Supabase Setup**: 
+   - Create a new Supabase project.
+   - Run the migration file in the SQL editor: [`supabase/migrations/20260711_music_sync.sql`](supabase/migrations/20260711_music_sync.sql).
+   
+2. **Environment Variables**:
+   - Copy `.env.example` to `.env.local` and add your Supabase project URL and anon key.
+   - Set up Supabase Auth redirect URLs to point to your Vercel deployment domain.
+
+3. **Deploy Web**:
+   - Import the repository into Vercel. The included `vercel.json` will automatically handle SPA routing.
+
+4. **Deploy Android (Tauri)**:
+   - Initialize Tauri: `npm run tauri android init`
+   - Run Android dev environment: `npm run android:dev`
+   - Build a standalone APK: `npm run android:build` (Use `npm run android:build:universal` for 32-bit/emulator support).
+
+## 📂 Project Structure
+
+| Directory | Purpose |
+| :--- | :--- |
+| `src/components/` | React UI components (Play controls, glass layouts, badges) |
+| `src/pages/` | Application views (Library, Wrapped, Now Playing) |
+| `src/store/` | Zustand state management (`player.ts`) |
+| `src/audio/` | Core audio engine (Gapless logic, ALAC decoders) |
+| `src/lib/` | Helpers (Metadata parsing, colors, indexedDB, cloud sync) |
+| `src-tauri/` | Rust-based Tauri backend for Android and Desktop builds |
+
+## 🛠️ Tech Stack
+- **Frontend**: React, Tailwind CSS, Framer Motion
+- **State**: Zustand
+- **Audio**: Web Audio API, `music-metadata`, `@audio/decode-aac`
+- **Backend & DB**: Supabase (Auth, Postgres, Storage, Realtime)
+- **Native Wrap**: Tauri (Android support)
+
+## 📌 Known Limitations
+- ALAC decoding is front-loaded to memory, meaning very large ALAC tracks may have a brief pause before the first playback begins.
+- Demo track imports use in-memory blob URLs and will reset upon reloading the page. (Real folder imports persist via File System Access API handles).
+
+---
+<div align="center">
+  <i>Built for the love of high-fidelity music.</i>
+</div>
