@@ -25,6 +25,7 @@ Supabase cloud sync. See [README.md](README.md) for setup.
 - **Library search** *(new)*
 - **ALAC (Apple Lossless) playback** *(new)* — decoded to lossless PCM in JS
 - **Gapless playback + optional crossfade** *(new)*
+- **Animated Replay story** *(new)* - scroll-snapping listening moments with album art
 - **Lyrics view** *(new)* — synced/unsynced, tap-to-seek, editable
 
 ## Changes made 2026-07-17
@@ -59,6 +60,10 @@ Supabase cloud sync. See [README.md](README.md) for setup.
    lyrics are a plain scroll. Editable in the Edit Song Info modal (one line per row).
    **Verified:** extraction tested end-to-end against ffmpeg-tagged FLAC (vorbis) and MP3 (USLT).
 
+9. **Animated Replay story** - the Wrapped page is now a sequence of listening moments: intro,
+   total time, top song, top artist, and a ranked listening stack. It uses local album art when
+   available, scroll snapping, and reduced-motion-safe reveals.
+
 ## Known limits / next steps
 
 - ALAC decode is session-cached per track; decoded WAVs are held in memory (fine for a queue,
@@ -67,4 +72,3 @@ Supabase cloud sync. See [README.md](README.md) for setup.
   for stats purposes
 - Lyrics entered/edited by hand aren't synced to the cloud yet (only embedded tags travel with
   the file); no auto-fetch from an online lyrics provider
-- Later: animated story-style Wrapped

@@ -52,7 +52,6 @@ real lossless WAV tones in-browser so you can try everything immediately.
   folder imports via file handles do).
 - Hand-edited lyrics stay on-device (embedded tags still travel with the file); no online
   lyrics auto-fetch yet.
-- Later: full animated story-style Wrapped.
 
 ## Layout
 
