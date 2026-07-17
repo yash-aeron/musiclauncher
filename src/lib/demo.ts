@@ -1,3 +1,4 @@
+import { saveBlob } from "./db";
 import type { Track } from "../types";
 
 // Generate real, playable, LOSSLESS WAV tracks entirely in the browser so the
@@ -90,25 +91,27 @@ let loaded: Track[] | null = null;
 
 export async function loadDemoTracks(): Promise<Track[]> {
   if (loaded) return loaded;
-  loaded = SPECS.map((spec, i) => {
-    const blob = renderWav(spec);
-    const url = URL.createObjectURL(blob);
-    return {
-      id: `demo-${i}`,
-      title: spec.title,
-      artist: spec.artist,
-      album: spec.album,
-      trackNo: spec.trackNo,
-      year: spec.year,
-      genre: spec.genre,
-      durationSec: spec.seconds,
-      codec: "pcm",
-      sampleRate: SAMPLE_RATE,
-      bitDepth: 16,
-      tier: "lossless",
-      artUrl: renderArt(spec),
-      source: { kind: "object-url", url },
-    } satisfies Track;
-  });
+  loaded = await Promise.all(
+    SPECS.map(async (spec, i) => {
+      const blobId = `demo-blob-${i}`;
+      await saveBlob(blobId, renderWav(spec));
+      return {
+        id: `demo-${i}`,
+        title: spec.title,
+        artist: spec.artist,
+        album: spec.album,
+        trackNo: spec.trackNo,
+        year: spec.year,
+        genre: spec.genre,
+        durationSec: spec.seconds,
+        codec: "pcm",
+        sampleRate: SAMPLE_RATE,
+        bitDepth: 16,
+        tier: "lossless",
+        artUrl: renderArt(spec),
+        source: { kind: "blob", blobId },
+      } satisfies Track;
+    })
+  );
   return loaded;
 }

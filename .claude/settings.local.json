@@ -72,7 +72,8 @@
       "Bash(curl *)",
       "Bash(grep -iA5 \"alias\\\\|target\")",
       "Bash(git add *)",
-      "Bash(git commit -m 'Initial commit: MusicLauncher web + Tauri Android player *)"
+      "Bash(git commit -m 'Initial commit: MusicLauncher web + Tauri Android player *)",
+      "Bash(git commit -q -m 'Code-split vendor chunks; persist demo tracks in IndexedDB *)"
     ]
   }
 }

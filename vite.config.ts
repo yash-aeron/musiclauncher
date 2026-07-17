@@ -9,6 +9,18 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig({
   plugins: [react()],
   clearScreen: false,
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom", "framer-motion"],
+          supabase: ["@supabase/supabase-js"],
+          metadata: ["music-metadata"],
+          vibrant: ["node-vibrant"],
+        },
+      },
+    },
+  },
   server: {
     port: 5175,
     strictPort: true,
