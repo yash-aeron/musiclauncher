@@ -16,7 +16,7 @@ npm run dev        # opens http://localhost:5175
 1. Create a Supabase project, then run [`supabase/migrations/20260711_music_sync.sql`](supabase/migrations/20260711_music_sync.sql) in its SQL editor.
 2. Copy `.env.example` to `.env.local`, add the project's URL and anon key, and add the same values to Vercel's environment variables. Set Supabase Auth's Site URL and redirect URL to your Vercel domain.
 3. Import music while signed in. Files are copied once to a private per-user library namespace in Supabase Storage; any signed-in web or Android device then receives the library and listening history through Realtime.
-4. Deploy the web app by importing this repository into Vercel (the included `vercel.json` handles SPA navigation). For Android, run `npm run tauri android init` once, then use `npm run android:dev` for live development or `npm run android:build` for a standalone APK. On Windows, use Android Studio's bundled JDK 21: `C:\Program Files\Android\Android Studio\jbr`.
+4. Deploy the web app by importing this repository into Vercel (the included `vercel.json` handles SPA navigation). For Android, run `npm run tauri android init` once, then use `npm run android:dev` for live development or `npm run android:build` for an arm64 standalone APK. Use `npm run android:build:universal` only when one APK must also support 32-bit devices and emulators. CI builds are unsigned unless Android signing credentials are configured. On Windows, Tauri automatically uses Android Studio's bundled JDK.
 
 The mobile build is a separate Android package, but uses the same Supabase login, database, storage bucket, and Realtime feed as the web app.
 
@@ -40,6 +40,9 @@ real lossless WAV tones in-browser so you can try everything immediately.
   (off/3s/6s/12s toggle on the Now Playing screen).
 - **Wrapped** — playback logs listening events; the Wrapped page shows top songs, top
   artists, and minutes listened, live.
+- **Lyrics** — embedded lyrics (synced ID3 SYLT or plain USLT/vorbis) are parsed on import
+  and shown in the Now Playing screen; synced lines auto-scroll, highlight, and are
+  tap-to-seek. Add or edit lyrics by hand from **Edit Song Info**.
 
 ## Known limits / next steps
 
@@ -47,7 +50,9 @@ real lossless WAV tones in-browser so you can try everything immediately.
   ALAC tracks pay a short decode pause before first play.
 - Demo/`<input>` imports use in-memory blob URLs and don't survive a reload (only real
   folder imports via file handles do).
-- Later: full animated story-style Wrapped, lyrics.
+- Hand-edited lyrics stay on-device (embedded tags still travel with the file); no online
+  lyrics auto-fetch yet.
+- Later: full animated story-style Wrapped.
 
 ## Layout
 

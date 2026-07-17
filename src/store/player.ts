@@ -45,7 +45,7 @@ interface PlayerState {
   openPlaylist: (id: string | null) => void;
   openEditTrack: (id: string | null) => void;
   openAddToPlaylist: (trackId: string | null) => void;
-  updateTrack: (id: string, patch: Partial<Pick<Track, "title" | "artist" | "album" | "artUrl">>) => void;
+  updateTrack: (id: string, patch: Partial<Pick<Track, "title" | "artist" | "album" | "artUrl" | "lyrics">>) => void;
   openNowPlaying: (open: boolean) => void;
   openQueue: (open: boolean) => void;
   openAuthModal: (open: boolean) => void;

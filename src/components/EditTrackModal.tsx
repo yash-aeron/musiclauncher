@@ -16,6 +16,7 @@ export function EditTrackModal() {
   const [artist, setArtist] = useState("");
   const [album, setAlbum] = useState("");
   const [art, setArt] = useState<string | undefined>(undefined);
+  const [lyrics, setLyrics] = useState("");
 
   // Seed the form whenever a new track is opened.
   useEffect(() => {
@@ -24,6 +25,7 @@ export function EditTrackModal() {
       setArtist(track.artist);
       setAlbum(track.album);
       setArt(track.artUrl);
+      setLyrics(track.lyrics?.map((line) => line.text).join("\n") ?? "");
     }
   }, [track?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -33,9 +35,10 @@ export function EditTrackModal() {
       title.trim() !== track.title ||
       artist.trim() !== track.artist ||
       album.trim() !== track.album ||
-      art !== track.artUrl
+      art !== track.artUrl ||
+      lyrics.trim() !== (track.lyrics?.map((line) => line.text).join("\n") ?? "")
     );
-  }, [track, title, artist, album, art]);
+  }, [track, title, artist, album, art, lyrics]);
 
   async function onPickCover() {
     try {
@@ -48,11 +51,15 @@ export function EditTrackModal() {
 
   function onSave() {
     if (!id) return;
+    const oldLyrics = track?.lyrics?.map((line) => line.text).join("\n") ?? "";
     updateTrack(id, {
       title: title.trim() || "Untitled",
       artist: artist.trim() || "Unknown Artist",
       album: album.trim() || "Unknown Album",
       artUrl: art,
+      lyrics: lyrics.trim() === oldLyrics
+        ? track?.lyrics
+        : lyrics.split(/\r?\n/).map((text) => ({ text: text.trim() })).filter((line) => line.text),
     });
     setToast("Saved.");
     close(null);
@@ -86,6 +93,17 @@ export function EditTrackModal() {
                 <Close width={18} height={18} />
               </button>
             </div>
+
+            <label className="mt-4 flex flex-col gap-1">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-white/40">Lyrics</span>
+              <textarea
+                value={lyrics}
+                onChange={(e) => setLyrics(e.target.value)}
+                rows={6}
+                placeholder="Paste lyrics, one line at a time"
+                className="resize-none rounded-lg border border-white/12 bg-black/25 px-3 py-2 text-sm leading-relaxed text-white outline-none placeholder:text-white/30 focus:border-[color:var(--accent)]"
+              />
+            </label>
 
             <div className="flex gap-4">
               {/* Cover picker */}

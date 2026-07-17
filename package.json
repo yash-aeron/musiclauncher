@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "android:dev": "tauri android dev --host",
-    "android:build": "tauri android build --apk --ci"
+    "android:build": "tauri android build --apk --ci --target aarch64 --split-per-abi",
+    "android:build:universal": "tauri android build --apk --ci"
   },
   "dependencies": {
     "@audio/decode-aac": "^1.3.4",

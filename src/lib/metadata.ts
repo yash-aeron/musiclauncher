@@ -1,5 +1,5 @@
 import { parseBlob, parseBuffer, type IAudioMetadata } from "music-metadata";
-import type { LosslessTier, Track, TrackSource } from "../types";
+import type { LosslessTier, LyricLine, Track, TrackSource } from "../types";
 
 const LOSSLESS_CODECS = /(flac|alac|wav|wave|aiff|pcm|ape|wavpack)/i;
 
@@ -30,6 +30,41 @@ export function bytesToDataUrl(bytes: Uint8Array, mime: string): string {
   return `data:${mime};base64,${btoa(binary)}`;
 }
 
+/**
+ * Pull lyrics out of parsed metadata. Synced lyrics (ID3 SYLT) win; then
+ * unsynced text (USLT); then raw native tags, because music-metadata 10.x
+ * maps vorbis LYRICS comments (FLAC/OGG) into common.lyrics *without* the
+ * text — the string only survives in meta.native.
+ */
+function extractLyrics(meta: IAudioMetadata | null): LyricLine[] | undefined {
+  const toLines = (text: string): LyricLine[] =>
+    text
+      .split(/\r?\n/)
+      .map((line) => ({ text: line.trim() }))
+      .filter((line) => line.text);
+
+  const tag = meta?.common.lyrics?.find((t) => t.syncText?.length || t.text?.trim());
+  if (tag?.syncText?.length) {
+    return tag.syncText
+      .filter((line) => line.text.trim())
+      .map((line) => ({
+        text: line.text.trim(),
+        // ID3 SYLT timestamps are milliseconds; Track.lyrics uses seconds.
+        timestamp: line.timestamp != null ? line.timestamp / 1000 : undefined,
+      }));
+  }
+  if (tag?.text?.trim()) return toLines(tag.text);
+
+  for (const tags of Object.values(meta?.native ?? {})) {
+    for (const { id, value } of tags) {
+      if (/^(TXXX:)?(UNSYNCED)?LYRICS/i.test(id) && typeof value === "string" && value.trim()) {
+        return toLines(value);
+      }
+    }
+  }
+  return undefined;
+}
+
 function buildTrack(meta: IAudioMetadata | null, fileName: string, source: TrackSource): Track {
   const codec = (meta?.format.codec || fileName.split(".").pop() || "").toLowerCase();
   const common = meta?.common;
@@ -42,6 +77,8 @@ function buildTrack(meta: IAudioMetadata | null, fileName: string, source: Track
     // track is persisted to IndexedDB.
     artUrl = bytesToDataUrl(new Uint8Array(pic.data), pic.format);
   }
+
+  const lyrics = extractLyrics(meta);
 
   return {
     id: makeId(fileName),
@@ -58,6 +95,7 @@ function buildTrack(meta: IAudioMetadata | null, fileName: string, source: Track
     bitrate: meta?.format.bitrate,
     tier: meta ? classify(meta, codec) : LOSSLESS_CODECS.test(codec) ? "lossless" : "lossy",
     artUrl,
+    lyrics: lyrics?.length ? lyrics : undefined,
     source,
   };
 }

@@ -25,6 +25,7 @@ Supabase cloud sync. See [README.md](README.md) for setup.
 - **Library search** *(new)*
 - **ALAC (Apple Lossless) playback** *(new)* — decoded to lossless PCM in JS
 - **Gapless playback + optional crossfade** *(new)*
+- **Lyrics view** *(new)* — synced/unsynced, tap-to-seek, editable
 
 ## Changes made 2026-07-17
 
@@ -50,6 +51,13 @@ Supabase cloud sync. See [README.md](README.md) for setup.
    next track `crossfadeSec` before the end and fades the two elements. The player store
    preloads on track load and on queue/repeat changes; the Now Playing screen has a
    "Fade off / 3s / 6s / 12s" toggle next to Queue.
+8. **Lyrics** — `Track.lyrics` (`LyricLine[]`, optional per-line `timestamp` in seconds).
+   `metadata.ts` extracts them at import: synced ID3 SYLT (ms → s), then unsynced USLT, then a
+   raw-native-tag fallback because music-metadata 10.x drops the text of vorbis `LYRICS`
+   comments (FLAC/OGG). The Now Playing screen has a **Lyrics** toggle that flips the album art
+   to a scrolling lyrics view — synced lines auto-center and highlight, tap-to-seek; unsynced
+   lyrics are a plain scroll. Editable in the Edit Song Info modal (one line per row).
+   **Verified:** extraction tested end-to-end against ffmpeg-tagged FLAC (vorbis) and MP3 (USLT).
 
 ## Known limits / next steps
 
@@ -57,4 +65,6 @@ Supabase cloud sync. See [README.md](README.md) for setup.
   could grow for huge ALAC libraries)
 - Crossfade advances the play counter at the fade point (a few seconds early) — acceptable
   for stats purposes
-- Later: animated story-style Wrapped, lyrics
+- Lyrics entered/edited by hand aren't synced to the cloud yet (only embedded tags travel with
+  the file); no auto-fetch from an online lyrics provider
+- Later: animated story-style Wrapped

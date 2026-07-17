@@ -18,8 +18,15 @@ export interface Track {
   tier: LosslessTier;
   /** Object URL or data URL for album art, if any. */
   artUrl?: string;
+  /** Embedded or manually entered lyrics. Timestamp is seconds from track start. */
+  lyrics?: LyricLine[];
   /** How we get the audio bytes back for playback. */
   source: TrackSource;
+}
+
+export interface LyricLine {
+  text: string;
+  timestamp?: number;
 }
 
 export type TrackSource =

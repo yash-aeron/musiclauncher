@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion, type PanInfo } from "framer-motion";
 import { usePlayer } from "../store/player";
 import { AlbumArt } from "./AlbumArt";
@@ -7,6 +8,7 @@ import { Slider } from "./Slider";
 import { Chevron, VolumeIcon, QueueIcon, CrossfadeIcon } from "./Icons";
 import { QueuePanel } from "./QueuePanel";
 import { formatDuration, qualityLabel } from "../lib/format";
+import type { LyricLine } from "../types";
 
 export function NowPlayingScreen() {
   const open = usePlayer((s) => s.nowPlayingOpen);
@@ -23,6 +25,9 @@ export function NowPlayingScreen() {
   const crossfadeSec = usePlayer((s) => s.crossfadeSec);
   const setCrossfade = usePlayer((s) => s.setCrossfade);
   const reduce = useReducedMotion();
+  const [lyricsOpen, setLyricsOpen] = useState(false);
+
+  useEffect(() => setLyricsOpen(false), [track?.id]);
 
   // Off → 3s → 6s → 12s → Off
   const CROSSFADE_STEPS = [0, 3, 6, 12];
@@ -65,19 +70,36 @@ export function NowPlayingScreen() {
           </button>
 
           {/* Art scales down when paused, up when playing — the iOS signature. */}
-          <motion.div
-            layoutId={`art-${track.id}`}
-            className="mb-8"
-            animate={reduce ? undefined : { scale: playing ? 1 : 0.82 }}
-            transition={{ type: "spring", stiffness: 220, damping: 26 }}
-          >
-            <AlbumArt
-              url={track.artUrl}
-              alt={track.album}
-              rounded="rounded-2xl"
-              className="h-[min(40vh,280px)] w-[min(40vh,280px)] shadow-2xl shadow-black/60 md:h-[min(44vh,360px)] md:w-[min(44vh,360px)]"
-            />
-          </motion.div>
+          <AnimatePresence mode="wait" initial={false}>
+            {lyricsOpen ? (
+              <motion.div
+                key="lyrics"
+                className="mb-8 h-[min(40vh,280px)] w-full max-w-md md:h-[min(44vh,360px)]"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+              >
+                <LyricsView lines={track.lyrics ?? []} position={position} reduce={Boolean(reduce)} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="art"
+                layoutId={`art-${track.id}`}
+                className="mb-8"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1, scale: reduce ? 1 : playing ? 1 : 0.82 }}
+                exit={{ opacity: 0 }}
+                transition={{ type: "spring", stiffness: 220, damping: 26 }}
+              >
+                <AlbumArt
+                  url={track.artUrl}
+                  alt={track.album}
+                  rounded="rounded-2xl"
+                  className="h-[min(40vh,280px)] w-[min(40vh,280px)] shadow-2xl shadow-black/60 md:h-[min(44vh,360px)] md:w-[min(44vh,360px)]"
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className="w-full max-w-md">
             <div className="mb-1 flex items-center gap-2">
@@ -106,7 +128,14 @@ export function NowPlayingScreen() {
             </div>
 
             {/* Queue + crossfade row */}
-            <div className="mt-7 flex items-center justify-center gap-10 text-[13px] font-medium text-white/55">
+            <div className="mt-7 flex items-center justify-center gap-7 text-[13px] font-medium text-white/55">
+              <button
+                onClick={() => setLyricsOpen((value) => !value)}
+                aria-pressed={lyricsOpen}
+                className={lyricsOpen ? "text-white" : "hover:text-white"}
+              >
+                Lyrics
+              </button>
               <button
                 onClick={() => openQueue(!queueOpen)}
                 className={`flex items-center gap-1.5 ${queueOpen ? "text-white" : "hover:text-white"}`}
@@ -135,5 +164,67 @@ export function NowPlayingScreen() {
         </motion.div>
       ) : null}
     </AnimatePresence>
+  );
+}
+
+/**
+ * Apple Music-style lyrics: synced lines highlight and auto-center as the
+ * song plays (tap a line to seek); unsynced lyrics are a plain scroll.
+ */
+function LyricsView({ lines, position, reduce }: { lines: LyricLine[]; position: number; reduce: boolean }) {
+  const seek = usePlayer((s) => s.seek);
+  const listRef = useRef<HTMLDivElement>(null);
+  const synced = lines.some((l) => l.timestamp != null);
+
+  // Last line whose timestamp has passed = the one being sung.
+  let activeIndex = -1;
+  if (synced) {
+    for (let i = 0; i < lines.length; i++) {
+      const ts = lines[i].timestamp;
+      if (ts != null && ts <= position) activeIndex = i;
+    }
+  }
+
+  useEffect(() => {
+    if (activeIndex < 0) return;
+    const el = listRef.current?.children[activeIndex] as HTMLElement | undefined;
+    el?.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+  }, [activeIndex, reduce]);
+
+  if (lines.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center px-8 text-center text-sm text-white/40">
+        No lyrics for this song — add them with Edit Song Info.
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="glass h-full overflow-hidden rounded-2xl"
+      // Let lyrics scroll without dragging the Now Playing sheet down.
+      onPointerDownCapture={(e) => e.stopPropagation()}
+    >
+      <div
+        ref={listRef}
+        className="h-full overflow-y-auto px-6 py-8 [mask-image:linear-gradient(transparent,black_12%,black_88%,transparent)]"
+      >
+        {lines.map((line, i) => (
+          <p
+            key={`${i}-${line.text}`}
+            onClick={line.timestamp != null ? () => seek(line.timestamp!) : undefined}
+            className={`py-1.5 text-[17px] font-semibold leading-snug transition-colors duration-300 ${
+              i === activeIndex
+                ? "text-white"
+                : synced
+                  ? `text-white/35 ${line.timestamp != null ? "cursor-pointer hover:text-white/60" : ""}`
+                  : "text-white/70"
+            }`}
+          >
+            {line.text}
+          </p>
+        ))}
+      </div>
+    </div>
   );
 }
