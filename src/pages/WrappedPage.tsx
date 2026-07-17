@@ -87,7 +87,7 @@ export function WrappedPage() {
       <StoryScene tone="from-[#2d1631] via-[#121321] to-[#07080c]" reduce={reduce}>
         <p className="text-sm font-semibold text-white/55">Time well spent</p>
         <motion.div variants={reveal} className="mt-4 text-7xl font-black tabular-nums tracking-tight md:text-9xl">
-          {Math.round(totalSeconds / 60)}
+          {Math.ceil(totalSeconds / 60)}
         </motion.div>
         <p className="mt-3 text-xl text-white/75">minutes listened</p>
         <p className="mt-10 text-sm text-white/45">

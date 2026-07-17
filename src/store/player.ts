@@ -161,7 +161,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
     if (index < 0 || loggedForIndex === index) return;
     const track = queue[index];
     if (!track) return;
-    const threshold = Math.min(20, (track.durationSec || 30) * 0.5);
+    const threshold = 2; // Fast feedback: log the play after just 2 seconds
     if (listenedSec >= threshold) {
       loggedForIndex = index;
       const id = `pe-${Date.now().toString(36)}-${index}`;
