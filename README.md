@@ -21,7 +21,6 @@ MusicLauncher blends the liquid-glass aesthetics and lossless audio of Apple Mus
 
 ## Table of Contents
 
-- [Screenshots](#screenshots)
 - [Features](#features)
 - [Getting Started](#getting-started)
   - [Local Development](#local-development)
@@ -30,12 +29,6 @@ MusicLauncher blends the liquid-glass aesthetics and lossless audio of Apple Mus
 - [Project Structure](#project-structure)
 - [Tech Stack](#tech-stack)
 - [Known Limitations](#known-limitations)
-
-## Screenshots
-
-| Web | Android (Tauri) |
-| :---: | :---: |
-| <img src="ml_current.png" alt="Web app" width="480" /> | <img src="android_app.png" alt="Android app" width="200" /> |
 
 ## Features
 

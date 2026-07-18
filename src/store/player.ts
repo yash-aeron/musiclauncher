@@ -230,14 +230,34 @@ export const usePlayer = create<PlayerState>((set, get) => {
     void ensureLyrics(track);
   }
 
-  // Tracks with no embedded lyrics (streamed/downloaded, or untagged files) get
-  // them fetched once from LRCLIB and cached onto the track.
+  // Tracks without *synced* lyrics get them fetched once from LRCLIB and cached
+  // onto the track. Embedded plain lyrics (USLT/vorbis) don't count — they're
+  // kept only as a fallback if LRCLIB has nothing timed.
   const lyricsTried = new Set<string>();
   async function ensureLyrics(track: Track) {
-    if (track.lyrics?.length || lyricsTried.has(track.id)) return;
+    const hasSynced = track.lyrics?.some((l) => l.timestamp != null);
+    if (hasSynced || lyricsTried.has(track.id)) return;
     lyricsTried.add(track.id);
-    const lines = await fetchLyrics(track.title, track.artist, track.album, track.durationSec);
-    if (!lines?.length) return;
+    const result = await fetchLyrics(track.title, track.artist, track.album, track.durationSec);
+    if (!result?.lines.length) return;
+    let { lines } = result;
+    // Never replace existing lyrics with an unsynced fetch — only upgrade.
+    if (track.lyrics?.length && !lines.some((l) => l.timestamp != null)) return;
+    // YouTube videos often have intros (visual countdown, logo, etc.) that the
+    // album version doesn't. LRCLIB timestamps are authored against the album
+    // cut, so when the video is significantly longer we shift timestamps forward
+    // by the difference — aligning lyrics to where the music actually starts.
+    // ponytail: simple additive offset; per-line alignment if this isn't enough
+    if (
+      result.lrcDuration &&
+      track.durationSec > 0 &&
+      track.durationSec - result.lrcDuration > 10
+    ) {
+      const offset = track.durationSec - result.lrcDuration;
+      lines = lines.map((l) =>
+        l.timestamp != null ? { ...l, timestamp: l.timestamp + offset } : l,
+      );
+    }
     // Only apply if this track is still around (may have been removed).
     const inQueue = get().queue.some((t) => t.id === track.id);
     const inLib = get().library.some((t) => t.id === track.id);
