@@ -10,6 +10,7 @@ import {
 } from "../lib/db";
 import { syncPlayEvent, pushPlaylist, removeCloudPlaylist } from "../lib/cloud";
 import { trackKey } from "../lib/albums";
+import { fetchLyrics } from "../lib/lyrics";
 import type { Playlist, RepeatMode, Track, ViewName } from "../types";
 
 interface PlayerState {
@@ -226,6 +227,21 @@ export const usePlayer = create<PlayerState>((set, get) => {
     void ensureController()
       .loadAndPlay(track)
       .then(() => preloadUpcoming());
+    void ensureLyrics(track);
+  }
+
+  // Tracks with no embedded lyrics (streamed/downloaded, or untagged files) get
+  // them fetched once from LRCLIB and cached onto the track.
+  const lyricsTried = new Set<string>();
+  async function ensureLyrics(track: Track) {
+    if (track.lyrics?.length || lyricsTried.has(track.id)) return;
+    lyricsTried.add(track.id);
+    const lines = await fetchLyrics(track.title, track.artist, track.album, track.durationSec);
+    if (!lines?.length) return;
+    // Only apply if this track is still around (may have been removed).
+    const inQueue = get().queue.some((t) => t.id === track.id);
+    const inLib = get().library.some((t) => t.id === track.id);
+    if (inQueue || inLib) get().updateTrack(track.id, { lyrics: lines });
   }
 
   return {
@@ -253,35 +269,60 @@ export const usePlayer = create<PlayerState>((set, get) => {
 
     setLibrary: (tracks) => set({ library: tracks }),
     addToLibrary: (tracks) =>
-      set((s) => ({ library: [...tracks, ...s.library] })),
+      set((s) => {
+        // Dedupe by id, incoming wins — downloading an already-added stream
+        // replaces the stream entry with the offline blob instead of creating
+        // a second row with the same id.
+        const incoming = new Set(tracks.map((t) => t.id));
+        return { library: [...tracks, ...s.library.filter((t) => !incoming.has(t.id))] };
+      }),
     deleteTracks: (ids) => {
       const setIds = new Set(ids);
+      const before = get();
+      const playingId = before.queue[before.index]?.id;
+      const currentDeleted = playingId != null && setIds.has(playingId);
+
       set((s) => {
         const newLibrary = s.library.filter((t) => !setIds.has(t.id));
-        
+
         let newQueue = s.queue;
         let newIndex = s.index;
-        
-        // If tracks are in queue, filter them out and adjust index
-        if (s.queue.some(t => setIds.has(t.id))) {
+
+        if (s.queue.some((t) => setIds.has(t.id))) {
           const currentTrackId = s.queue[s.index]?.id;
           newQueue = s.queue.filter((t) => !setIds.has(t.id));
           if (currentTrackId && !setIds.has(currentTrackId)) {
+            // Current track survived — keep pointing at it.
             newIndex = newQueue.findIndex((t) => t.id === currentTrackId);
           } else {
-            // Current track was deleted, just stay at index or clamp
-            newIndex = Math.min(s.index, newQueue.length - 1);
+            // Current track was deleted. Point at the track that shifted into
+            // its slot (or clamp to the last one); playback is redirected below.
+            newIndex = newQueue.length === 0 ? -1 : Math.min(s.index, newQueue.length - 1);
           }
         }
 
-        // Trigger background deletion for each track
-        const tracksToDelete = s.library.filter(t => setIds.has(t.id));
+        const tracksToDelete = s.library.filter((t) => setIds.has(t.id));
         tracksToDelete.forEach((t) => {
-          deleteTrackDb(t.id, t.source).catch(e => console.error("Failed to delete track", e));
+          deleteTrackDb(t.id, t.source).catch((e) => console.error("Failed to delete track", e));
         });
 
         return { library: newLibrary, queue: newQueue, index: newIndex };
       });
+
+      // If the track that was actually playing got deleted, the <audio> element
+      // is still playing its buffered source — stop it and switch to whatever
+      // now occupies the slot (or halt if the queue emptied). Done outside the
+      // reducer so we can call the controller with the post-update state.
+      if (currentDeleted) {
+        const after = get();
+        if (after.index >= 0 && after.queue[after.index]) {
+          loadIndex(after.index);
+        } else {
+          ensureController().pause();
+          flushPlay();
+          set({ index: -1, playing: false, position: 0, duration: 0 });
+        }
+      }
     },
     setView: (view) => set({ view, selectedAlbumKey: null, selectedPlaylistId: null }),
     openAlbum: (selectedAlbumKey) => set({ selectedAlbumKey }),

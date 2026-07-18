@@ -22,10 +22,10 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: https:; media-src 'self' blob: asset: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; font-src 'self' data:",
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: https:; media-src 'self' blob: asset: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://lrclib.net https://*.audius.co; font-src 'self' data:",
       "assetProtocol": {
         "enable": true,
-        "scope": ["$HOME/Music/**", "$HOME/Downloads/**", "$DOCUMENT/**", "$AUDIO/**"]
+        "scope": ["$HOME/Music/**", "$HOME/Downloads/**", "$DOCUMENT/**", "$AUDIO/**", "$APPLOCALDATA/**", "$APPDATA/**"]
       }
     }
   },

@@ -1,5 +1,5 @@
 import { usePlayer } from "../store/player";
-import { LibraryIcon, WrappedIcon, MusicNote, PlaylistIcon } from "./Icons";
+import { LibraryIcon, WrappedIcon, MusicNote, PlaylistIcon, SearchIcon } from "./Icons";
 import type { ViewName } from "../types";
 
 const LIBRARY: { id: ViewName; label: string }[] = [
@@ -21,6 +21,15 @@ export function Sidebar() {
         </span>
         <h1 className="text-[15px] font-bold tracking-tight">Music</h1>
       </div>
+
+      <Section title="Online">
+        <Item
+          label="Search"
+          active={view === "search"}
+          onClick={() => setView("search")}
+          icon={<SearchIcon width={16} height={16} />}
+        />
+      </Section>
 
       <Section title="Library">
         {LIBRARY.map((item) => (

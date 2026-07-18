@@ -20,6 +20,8 @@ export class AudioController {
   private volume = 1;
   private preloadedTrackId: string | null = null;
   private fadeTimer: number | null = null;
+  /** Bumped on every loadAndPlay; lets a newer load cancel an older one's play. */
+  private loadGen = 0;
   /** Crossfade duration in seconds; 0 = plain gapless swap. */
   crossfadeSec = 0;
 
@@ -46,12 +48,24 @@ export class AudioController {
       el.addEventListener("error", () => {
         if (el !== this.el) return;
         const codeMap: Record<number, string> = {
+          2: "Network error while loading this track.",
           3: "This file can't be decoded by the browser (e.g. ALAC).",
           4: "This audio format isn't supported by the browser.",
         };
         const code = el.error?.code ?? 0;
-        this.cb.onError(codeMap[code] || "Playback failed.");
+        const detail = el.error?.message ? ` (${el.error.message})` : "";
+        this.cb.onError((codeMap[code] || "Playback failed.") + detail);
       });
+      // Android WebView refuses to play() on <audio> elements that aren't in
+      // the DOM. Mount off-screen so they're rendered but invisible.
+      el.style.position = "fixed";
+      el.style.left = "-9999px";
+      el.style.top = "-9999px";
+      el.style.width = "0";
+      el.style.height = "0";
+      el.style.opacity = "0";
+      el.style.pointerEvents = "none";
+      document.body.appendChild(el);
     }
   }
 
@@ -65,8 +79,18 @@ export class AudioController {
   /** Resolve and buffer the next track on the idle element. */
   async preloadNext(track: Track | null): Promise<void> {
     if (!track || track.id === this.preloadedTrackId) return;
+    // Don't pre-buffer online streams: their resolved URLs are short-lived and
+    // IP-bound, so a URL fetched now can be dead by the time the track actually
+    // advances (esp. if it sits queued for a while). Streams cold-resolve on
+    // play instead — a tiny gap, but always a fresh, valid URL.
+    if (track.source.kind === "stream") return;
+    // During a crossfade the "idle" element is actually the OLD track still
+    // fading out (crossfadeFrom keeps it playing). Overwriting its src would
+    // cut the fade off abruptly, so skip preloading until the fade finishes.
+    if (this.fadeTimer !== null) return;
     try {
       const url = await resolvePlayableUrl(track);
+      if (this.fadeTimer !== null) return; // a fade started while we resolved
       this.idle.src = url;
       this.idle.load();
       this.preloadedTrackId = track.id;
@@ -76,6 +100,7 @@ export class AudioController {
   }
 
   async loadAndPlay(track: Track): Promise<void> {
+    const gen = ++this.loadGen;
     try {
       this.cancelFade();
       if (track.id === this.preloadedTrackId) {
@@ -84,16 +109,26 @@ export class AudioController {
         this.active = 1 - this.active;
         this.preloadedTrackId = null;
         await this.el.play();
+        // A newer load superseded us while play() was pending — don't start a
+        // crossfade against an element the newer load is already driving.
+        if (gen !== this.loadGen) return;
         this.crossfadeFrom(old);
         return;
       }
       const url = await resolvePlayableUrl(track);
+      // A newer load started while we were resolving — abandon this one so we
+      // don't call play() on an element the newer load is about to pause.
+      if (gen !== this.loadGen) return;
       this.el.pause();
       this.el.volume = this.volume;
       this.el.src = url;
       this.preloadedTrackId = null;
       await this.el.play();
     } catch (e) {
+      // A play() aborted because a newer load superseded it is expected — the
+      // browser rejects the pending play() with an AbortError. Don't surface it.
+      if (gen !== this.loadGen) return;
+      if (e instanceof DOMException && e.name === "AbortError") return;
       this.cb.onError(e instanceof Error ? e.message : "Could not play track.");
     }
   }

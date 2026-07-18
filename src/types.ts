@@ -34,7 +34,8 @@ export type TrackSource =
   | { kind: "file-handle"; handleId: string } // legacy persisted FileSystemFileHandle (web build)
   | { kind: "object-url"; url: string } // in-memory (demo tracks)
   | { kind: "url"; url: string } // bundled/remote demo asset
-  | { kind: "native"; ref: string }; // Tauri: desktop absolute path or Android content URI
+  | { kind: "native"; ref: string } // Tauri: desktop absolute path or Android content URI
+  | { kind: "stream"; provider: string; streamId: string }; // online source; URL re-resolved per play (expires)
 
 export interface PlayEvent {
   id: string;
@@ -50,7 +51,7 @@ export interface PlayEvent {
 
 export type RepeatMode = "off" | "all" | "one";
 
-export type ViewName = "songs" | "albums" | "artists" | "playlists" | "replay";
+export type ViewName = "songs" | "albums" | "artists" | "playlists" | "replay" | "search";
 
 /**
  * A playlist references tracks by a stable content key (title|artist|album)

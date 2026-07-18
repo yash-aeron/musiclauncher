@@ -91,9 +91,19 @@ export async function getBlob(id: string): Promise<Blob | undefined> {
 /** Delete a track and its associated storage (blob, file handle, or Android native copy). */
 export async function deleteTrack(id: string, source: TrackSource): Promise<void> {
   const d = await db();
-  await d.delete("tracks", id);
-  if (source.kind === "blob" && source.blobId) await d.delete("blobs", source.blobId);
-  if (source.kind === "file-handle" && source.handleId) await d.delete("handles", source.handleId);
+  // Delete the track row and its IndexedDB-side storage in one transaction so a
+  // partial failure can't leave an orphaned blob/handle with no track pointing
+  // at it. (The Android native-file removal is a separate filesystem op below.)
+  const stores: ("tracks" | "blobs" | "handles")[] = ["tracks"];
+  if (source.kind === "blob" && source.blobId) stores.push("blobs");
+  if (source.kind === "file-handle" && source.handleId) stores.push("handles");
+  const tx = d.transaction(stores, "readwrite");
+  const ops: Promise<unknown>[] = [tx.objectStore("tracks").delete(id)];
+  if (source.kind === "blob" && source.blobId) ops.push(tx.objectStore("blobs").delete(source.blobId));
+  if (source.kind === "file-handle" && source.handleId)
+    ops.push(tx.objectStore("handles").delete(source.handleId));
+  await Promise.all([...ops, tx.done]);
+
   if (source.kind === "native") {
     // On Android, the file was copied into AppLocalData. Delete it to free space.
     // On Desktop, the file is a reference to the user's original music folder, so leave it alone.
@@ -117,10 +127,17 @@ export async function addPlayEvent(ev: PlayEvent): Promise<void> {
 /** Update the real listened-seconds of an already-recorded play event. */
 export async function updatePlayEventSeconds(id: string, secondsPlayed: number): Promise<PlayEvent | undefined> {
   const d = await db();
-  const ev = await d.get("playEvents", id);
-  if (!ev) return undefined;
+  // Read-modify-write inside a single transaction so two overlapping updates
+  // can't both read the old row and clobber each other's seconds.
+  const tx = d.transaction("playEvents", "readwrite");
+  const ev = await tx.store.get(id);
+  if (!ev) {
+    await tx.done;
+    return undefined;
+  }
   ev.secondsPlayed = secondsPlayed;
-  await d.put("playEvents", ev);
+  await tx.store.put(ev);
+  await tx.done;
   return ev;
 }
 

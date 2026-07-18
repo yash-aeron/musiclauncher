@@ -7,7 +7,7 @@ import { saveBlob, getBlob } from "../lib/db";
 import { trackFromBytes, bytesToDataUrl } from "../lib/metadata";
 import type { Track, TrackSource } from "../types";
 import type { PlatformAdapter, ProgressFn } from "./types";
-import { AUDIO_EXT, AUDIO_EXTENSIONS, ObjectUrlCache } from "./constants";
+import { AUDIO_EXT, AUDIO_EXTENSIONS, ObjectUrlCache, ImportPartialError } from "./constants";
 
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "gif", "bmp"];
 
@@ -100,6 +100,26 @@ async function blobUrl(blobId: string): Promise<string> {
   return url;
 }
 
+/**
+ * Android: serve a native file as a blob: URL read on demand rather than via the
+ * asset:// protocol. The asset protocol requires the file path to match the
+ * configured scope exactly, and Android's `/data/data/<pkg>` vs `/data/user/0/<pkg>`
+ * path aliasing makes that match unreliable — a miss yields an <audio> "no
+ * supported sources" error. Reading the bytes into a blob URL is the same path
+ * the web build uses and always plays. Cached (LRU) and only one file's bytes are
+ * held transiently per play.
+ */
+async function nativeBlobUrl(ref: string): Promise<string> {
+  const hit = blobUrlCache.get(ref);
+  if (hit) return hit;
+  const bytes = await readFile(ref);
+  const ext = ref.split(".").pop()?.toLowerCase() ?? "";
+  const type = MIME_BY_EXT[ext] ?? "audio/mpeg";
+  const url = URL.createObjectURL(new Blob([bytes], { type }));
+  blobUrlCache.set(ref, url);
+  return url;
+}
+
 function mimeFromExt(path: string): string {
   const ext = path.split(".").pop()?.toLowerCase();
   switch (ext) {
@@ -153,27 +173,43 @@ export const tauriPlatform: PlatformAdapter = {
       }
 
       const tracks: Track[] = [];
-      let completed = 0;
+      const failed: string[] = [];
       const localDir = await appLocalDataDir();
-      
-      for (let i = 0; i < files.length; i += 5) {
-        const chunk = files.slice(i, i + 5);
-        const results = await Promise.all(
-          chunk.map(async (file, j) => {
-            try {
-              return await trackFromContentUri(file.uri, file.name, i + j, localDir);
-            } catch (err) {
-              console.error("Import failed for", file.name, err);
-              return null;
-            }
-          })
-        );
-        
-        for (const track of results) {
-          if (track) tracks.push(track);
+
+      // Ensure the app-local-data dir exists before writing into it. On a fresh
+      // install it may not, which would make every writeFile fail.
+      try {
+        await mkdir("", { baseDir: BaseDirectory.AppLocalData, recursive: true });
+      } catch {
+        // Already exists (or will be created by writeFile) — safe to ignore.
+      }
+
+      // Import one file at a time. Each file is read fully into JS and written
+      // back to disk; doing several at once holds multiple large buffers in
+      // memory simultaneously, which OOMs on phones with big FLAC/WAV files
+      // (the "sometimes doesn't read it" / slow-import symptom). Sequential
+      // keeps the peak at one file's worth of bytes.
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        try {
+          tracks.push(await trackFromContentUri(file.uri, file.name, i, localDir));
+        } catch (err) {
+          console.error("Import failed for", file.name, err);
+          failed.push(file.name);
         }
-        completed += chunk.length;
-        onProgress?.(completed, files.length);
+        onProgress?.(i + 1, files.length);
+      }
+
+      // Surface failures instead of silently dropping files. If every file
+      // failed, throw so the user gets a clear message rather than an empty
+      // "no supported files" toast.
+      if (failed.length && !tracks.length) {
+        throw new Error(
+          `Couldn't read ${failed.length === 1 ? "the selected file" : `any of the ${failed.length} selected files`}. It may be an unsupported format or too large.`,
+        );
+      }
+      if (failed.length) {
+        throw new ImportPartialError(tracks, failed.length);
       }
       return tracks;
     }
@@ -195,10 +231,14 @@ export const tauriPlatform: PlatformAdapter = {
     if (source.kind === "object-url" || source.kind === "url") return source.url;
     // Android imports (and any library carried over from the web build).
     if (source.kind === "blob") return blobUrl(source.blobId);
+    if ((source as any).kind === "path") {
+      // Back-compat for old imports.
+      return isAndroid() ? nativeBlobUrl((source as any).path) : convertFileSrc((source as any).path);
+    }
     if (source.kind !== "native") throw new Error("Unsupported source for the native build.");
-    // Desktop: stream straight from disk through the asset protocol, no full
-    // read into JS memory.
-    return convertFileSrc(source.ref);
+    // Android: asset:// path matching is unreliable — read the file into a blob
+    // URL instead. Desktop streams straight from disk through the asset protocol.
+    return isAndroid() ? nativeBlobUrl(source.ref) : convertFileSrc(source.ref);
   },
 
   async pickImage() {

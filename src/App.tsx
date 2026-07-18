@@ -12,9 +12,12 @@ import { AuthModal } from "./components/AuthModal";
 import { Toast } from "./components/Toast";
 import { LibraryPage } from "./pages/LibraryPage";
 import { PlaylistsPage } from "./pages/PlaylistsPage";
+import { SearchPage } from "./pages/SearchPage";
 import { AddToPlaylistSheet } from "./components/AddToPlaylistSheet";
 import { MobileNav } from "./components/MobileNav";
 import { WrappedPage } from "./pages/WrappedPage";
+import { setupMediaSession } from "./lib/mediaSession";
+import { setupAndroidBack } from "./lib/androidBack";
 import { isAndroid } from "./platform";
 
 export default function App() {
@@ -24,11 +27,25 @@ export default function App() {
   const openAuthModal = usePlayer((s) => s.openAuthModal);
 
   useEffect(() => {
+    // OS media session: notification + lock-screen controls on Android, and
+    // hardware media keys on desktop/web. Returns an unsubscribe so a remount
+    // (StrictMode / HMR) doesn't stack duplicate store subscribers.
+    return setupMediaSession();
+  }, []);
+
+  useEffect(() => {
+    // Android: keep the hardware/gesture back button inside the app (close
+    // overlays/return to the library) instead of exiting on the first press.
+    if (!isAndroid) return;
+    return setupAndroidBack();
+  }, []);
+
+  useEffect(() => {
     // Restore the library from local storage. Every persistable source
     // survives a reload: blobs (audio copied into IndexedDB), legacy file
     // handles, and native paths (Tauri). In-memory object URLs (demo tracks)
     // and stale kinds from older versions are dropped.
-    const keep = new Set(["blob", "file-handle", "native"]);
+    const keep = new Set(["blob", "file-handle", "native", "stream"]);
     getAllTracks().then((tracks) => {
       setLibrary(tracks.filter((t) => keep.has(t.source.kind)));
     });
@@ -41,15 +58,21 @@ export default function App() {
     // Progress-only sync: merge cloud play events + playlists into the local
     // store and push up anything the cloud missed. Songs stay on-device.
     let stop = () => {};
-    let aborted = false; // guard against in-flight start after cleanup (#4)
+    // Generation guard: each (re)start bumps `gen`; an in-flight start whose
+    // gen is stale aborts instead of overwriting `stop` with a subscription
+    // that would then leak. Auth changes (sign in/out, token refresh) restart.
+    let gen = 0;
     const start = async () => {
+      const myGen = ++gen;
+      stop(); // tear down any previous subscription before starting a new one
+      stop = () => {};
       try {
         const [localEvents, localPlaylists] = await Promise.all([getAllPlayEvents(), getAllPlaylists()]);
-        if (aborted) return;
+        if (myGen !== gen) return;
         await pushPlayEvents(localEvents);
         await pushPlaylists(localPlaylists);
-        if (aborted) return;
-        stop = await hydrateProgress(
+        if (myGen !== gen) return;
+        const cleanup = await hydrateProgress(
           (events) => {
             events.forEach((event) => void addPlayEvent(event));
           },
@@ -67,13 +90,26 @@ export default function App() {
             usePlayer.getState().setPlaylists([...byId.values()].sort((a, b) => b.createdAt - a.createdAt));
           },
         );
+        // A newer start superseded us while hydrateProgress was awaiting — tear
+        // down the subscription we just made instead of leaking it.
+        if (myGen !== gen) {
+          cleanup();
+          return;
+        }
+        stop = cleanup;
       } catch {
         // Offline or signed out — local stats keep working.
       }
     };
     void start();
-    const { data } = supabase?.auth.onAuthStateChange(() => { stop(); aborted = true; aborted = false; void start(); }) ?? { data: { subscription: { unsubscribe() {} } } };
-    return () => { aborted = true; stop(); data.subscription.unsubscribe(); };
+    const { data } = supabase?.auth.onAuthStateChange(() => void start()) ?? {
+      data: { subscription: { unsubscribe() {} } },
+    };
+    return () => {
+      gen++; // invalidate any in-flight start
+      stop();
+      data.subscription.unsubscribe();
+    };
   }, []);
 
   return (
@@ -85,7 +121,13 @@ export default function App() {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
         <Sidebar />
         <main className="min-w-0 flex-1 overflow-y-auto">
-          {view === "replay" ? <WrappedPage /> : view === "playlists" ? <PlaylistsPage /> : <LibraryPage />}
+          {/* SearchPage stays mounted (hidden) across tab switches so the
+              query, results and in-flight download spinners survive — before,
+              visiting Albums and returning reset the whole search page. */}
+          <div className={view === "search" ? "h-full" : "hidden"}>
+            <SearchPage />
+          </div>
+          {view === "search" ? null : view === "replay" ? <WrappedPage /> : view === "playlists" ? <PlaylistsPage /> : <LibraryPage />}
         </main>
         <MobileNav />
       </div>

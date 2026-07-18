@@ -220,6 +220,14 @@ button:focus-visible {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+/* Without backdrop blur the 0.5-alpha surface reads as see-through, so
+   floating chrome (track menus, sheets, modals) is hard to read over album
+   art. Raise it to near-opaque on Android. */
+.android .glass-strong {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03) 45%),
+    rgba(var(--surface), 0.94);
+}
 .android .glass-sheen::after {
   display: none;
 }

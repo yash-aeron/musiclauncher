@@ -1,8 +1,9 @@
 import { usePlayer } from "../store/player";
-import { LibraryIcon, WrappedIcon, PlaylistIcon, MusicNote } from "./Icons";
+import { LibraryIcon, WrappedIcon, PlaylistIcon, MusicNote, SearchIcon } from "./Icons";
 import type { ViewName } from "../types";
 
 const TABS: { id: ViewName; label: string }[] = [
+  { id: "search", label: "Search" },
   { id: "albums", label: "Albums" },
   { id: "songs", label: "Songs" },
   { id: "playlists", label: "Playlists" },
@@ -13,6 +14,7 @@ function iconFor(id: ViewName) {
   if (id === "replay") return <WrappedIcon width={20} height={20} />;
   if (id === "playlists") return <PlaylistIcon width={20} height={20} />;
   if (id === "songs") return <MusicNote width={20} height={20} />;
+  if (id === "search") return <SearchIcon width={20} height={20} />;
   return <LibraryIcon width={20} height={20} />;
 }
 

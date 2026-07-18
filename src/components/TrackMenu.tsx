@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePlayer } from "../store/player";
 import { MoreIcon, Play, QueueIcon, PlaylistIcon, Pencil, TrashIcon } from "./Icons";
 import type { Track } from "../types";
@@ -7,6 +8,9 @@ import type { Track } from "../types";
 export function TrackMenu({ track }: { track: Track }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const playTrackNext = usePlayer((s) => s.playTrackNext);
   const addToQueue = usePlayer((s) => s.addToQueue);
   const openAddToPlaylist = usePlayer((s) => s.openAddToPlaylist);
@@ -17,10 +21,35 @@ export function TrackMenu({ track }: { track: Track }) {
   useEffect(() => {
     if (!open) return;
     const close = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      if (ref.current?.contains(e.target as Node)) return;
+      if (menuRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
     };
     document.addEventListener("pointerdown", close);
-    return () => document.removeEventListener("pointerdown", close);
+    const onScroll = () => setOpen(false);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [open]);
+
+  // Position the portal menu against the button, flipping up/left near edges.
+  useLayoutEffect(() => {
+    if (!open || !btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    const MENU_W = 192; // w-48
+    const MENU_H = 232; // ~5 items
+    const margin = 8;
+    let top = r.bottom + 6;
+    if (top + MENU_H > window.innerHeight - margin) {
+      top = Math.max(margin, r.top - MENU_H - 6); // flip above
+    }
+    let left = r.right - MENU_W;
+    if (left < margin) left = margin;
+    setPos({ top, left });
   }, [open]);
 
   const items = [
@@ -65,6 +94,7 @@ export function TrackMenu({ track }: { track: Track }) {
   return (
     <div ref={ref} className="relative">
       <button
+        ref={btnRef}
         onClick={() => setOpen((v) => !v)}
         className={`rounded-full p-2 transition hover:bg-white/10 hover:text-white ${
           open ? "text-white" : "text-white/40 sm:opacity-0 sm:group-hover:opacity-100"
@@ -73,23 +103,30 @@ export function TrackMenu({ track }: { track: Track }) {
       >
         <MoreIcon width={16} height={16} />
       </button>
-      {open ? (
-        <div className="glass-strong absolute right-0 top-10 z-40 w-48 rounded-xl p-1.5 shadow-2xl">
-          {items.map((item) => (
-            <button
-              key={item.label}
-              onClick={() => {
-                setOpen(false);
-                item.run();
-              }}
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium text-white/80 hover:bg-white/10 hover:text-white"
+      {open
+        ? createPortal(
+            <div
+              ref={menuRef}
+              style={{ position: "fixed", top: pos.top, left: pos.left }}
+              className="glass-strong z-[100] w-48 rounded-xl p-1.5 shadow-2xl"
             >
-              <span className="text-white/50">{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
+              {items.map((item) => (
+                <button
+                  key={item.label}
+                  onClick={() => {
+                    setOpen(false);
+                    item.run();
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium text-white/80 hover:bg-white/10 hover:text-white"
+                >
+                  <span className="text-white/50">{item.icon}</span>
+                  {item.label}
+                </button>
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

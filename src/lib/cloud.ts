@@ -8,8 +8,11 @@ import type { PlayEvent, Playlist } from "../types";
 
 async function userId() {
   if (!supabase) return undefined;
-  const { data } = await supabase.auth.getUser();
-  return data.user?.id;
+  // Use the locally-cached session rather than getUser(): getUser() makes a
+  // network round-trip on every sync call and rejects when offline, turning a
+  // per-event push into a network dependency. getSession() reads local state.
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user?.id;
 }
 
 /** Push one play event up. No-op when signed out or cloud isn't configured. */
@@ -69,16 +72,25 @@ export async function hydrateProgress(
   // Debounce rapid Realtime notifications so concurrent loads can't race (#3).
   let timer: ReturnType<typeof setTimeout> | null = null;
   let inflight = false;
+  let pending = false; // a reload was requested while one was in flight
   const load = async () => {
-    if (inflight) return;
+    if (inflight) {
+      // Don't drop this request — run it once the current load finishes, so a
+      // burst of edits from another device always ends on the latest state.
+      pending = true;
+      return;
+    }
     inflight = true;
     try {
       const [{ data: events, error: eventError }, { data: playlists, error: playlistError }] =
         await Promise.all([
+          // PostgREST caps a plain select at 1000 rows; ask for a large explicit
+          // range so full listening history hydrates for heavy users.
           client
             .from("play_events")
             .select("id, trackId, title, artist, album, at, secondsPlayed")
-            .order("at", { ascending: false }),
+            .order("at", { ascending: false })
+            .range(0, 99999),
           client
             .from("playlists")
             .select("id, name, createdAt, updatedAt, trackKeys")
@@ -90,6 +102,10 @@ export async function hydrateProgress(
       onPlaylists?.((playlists ?? []) as Playlist[]);
     } finally {
       inflight = false;
+      if (pending) {
+        pending = false;
+        void load(); // run the reload that arrived mid-flight
+      }
     }
   };
   const debouncedLoad = () => {

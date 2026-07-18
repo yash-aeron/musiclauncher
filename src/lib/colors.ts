@@ -29,7 +29,7 @@ export async function paletteFromArt(artUrl?: string): Promise<Palette> {
         const c = document.createElement("canvas");
         c.width = 64;
         c.height = 64;
-        const ctx = c.getContext("2d");
+        const ctx = c.getContext("2d", { willReadFrequently: true });
         if (!ctx) return resolve(FALLBACK);
         ctx.drawImage(img, 0, 0, 64, 64);
         

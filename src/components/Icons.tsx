@@ -18,6 +18,13 @@ export const Play = (p: P) => (
     <path d="M8 5v14l11-7z" />
   </svg>
 );
+export const DownloadIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 3v12" />
+    <path d="M7 10l5 5 5-5" />
+    <path d="M5 21h14" />
+  </svg>
+);
 export const Pause = (p: P) => (
   <svg {...base(p)} fill="currentColor" stroke="none">
     <rect x="6" y="5" width="4" height="14" rx="1" />
@@ -141,5 +148,11 @@ export const CrossfadeIcon = (p: P) => (
   <svg {...base(p)}>
     <path d="M2 18C8 18 10 6 16 6h6" />
     <path d="M2 6c6 0 8 12 14 12h6" />
+  </svg>
+);
+export const SearchIcon = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="M21 21l-4.3-4.3" />
   </svg>
 );

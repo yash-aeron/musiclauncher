@@ -5,8 +5,16 @@ import { TrackMenu } from "./TrackMenu";
 import { Play, Pause } from "./Icons";
 import { formatDuration } from "../lib/format";
 import type { Track } from "../types";
+import type { ReactNode } from "react";
 
-export function TrackList({ tracks }: { tracks: Track[] }) {
+export function TrackList({
+  tracks,
+  action,
+}: {
+  tracks: Track[];
+  /** Optional trailing control per row (e.g. an "Add to library" button). */
+  action?: (track: Track) => ReactNode;
+}) {
   const currentId = usePlayer((s) => (s.index >= 0 ? s.queue[s.index]?.id : null));
   const playing = usePlayer((s) => s.playing);
   const playQueue = usePlayer((s) => s.playQueue);
@@ -53,6 +61,7 @@ export function TrackList({ tracks }: { tracks: Track[] }) {
             <div className="w-12 text-right text-xs tabular-nums text-white/40">
               {formatDuration(t.durationSec)}
             </div>
+            {action ? action(t) : null}
           </div>
         );
       })}

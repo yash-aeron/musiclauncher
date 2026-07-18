@@ -5,6 +5,7 @@ import { TrackList } from "../components/TrackList";
 import { ArtistsView } from "../components/ArtistsView";
 import { AlbumDetail } from "./AlbumDetail";
 import { pickFolder, pickFiles, supportsFolderImport } from "../lib/fileImport";
+import { ImportPartialError } from "../platform/constants";
 import { saveTracks } from "../lib/db";
 import { loadDemoTracks } from "../lib/demo";
 import type { Track } from "../types";
@@ -52,7 +53,14 @@ export function LibraryPage() {
       const tracks = await pickFiles((done, total) => setBusy(`Reading… ${done}/${total}`));
       await ingest(tracks);
     } catch (e) {
-      if ((e as Error)?.name !== "AbortError") setToast((e as Error)?.message || "Import failed.");
+      // Partial success: some files read, some failed. Import the good ones,
+      // then warn about the rest instead of losing everything.
+      if (e instanceof ImportPartialError) {
+        await ingest(e.tracks);
+        setToast(`${e.failedCount} file${e.failedCount === 1 ? "" : "s"} couldn't be read and ${e.failedCount === 1 ? "was" : "were"} skipped.`);
+      } else if ((e as Error)?.name !== "AbortError") {
+        setToast((e as Error)?.message || "Import failed.");
+      }
     } finally {
       setBusy(null);
     }
